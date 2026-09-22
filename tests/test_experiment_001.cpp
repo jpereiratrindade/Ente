@@ -107,7 +107,9 @@ void run_experiment_001_context_change() {
         5,
         {ente.history().head().id},
         {ev3, ev4},
-        "COHERENCE_RESTORED:I0002:possible_obstruction"
+        "COHERENCE_RESTORED:I0002:possible_obstruction",
+        std::string(ente.authority_lineage().active_epoch().authorized_authority.view()),
+        std::string(ente.authority_lineage().active_epoch().epoch_id.view())
     );
     assert(ente.history_mut().append(std::move(restore_ev)).has_value());
 
@@ -395,7 +397,7 @@ void run_comparative_baseline_experiment() {
     assert(b0_uj_rate > 0.0);
     assert(b2_un_rate > 0.0);
 
-    std::cout << "\n[PASS] Executable Comparative Baseline evaluation proved ENTE-0 Pareto-optimal epistemic balance.\n";
+    std::cout << "\n[PASS] Executable Comparative Baseline evaluation demonstrated ENTE-0 Pareto-dominance over B0/B1/B2 on the evaluated scenario set.\n";
 }
 
 int main() {

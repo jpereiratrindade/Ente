@@ -95,6 +95,11 @@ int main() {
         assert(process_b.identity().id == ente_id);
         assert(process_b.identity().lifecycle == identity::LifecycleStatus::LifeActive);
         assert(process_b.history().verify_integrity());
+        assert(process_b.material_bindings().has_active_binding());
+        assert(process_b.material_bindings().active_binding().anchor.id == identity::MaterialAnchorId("secure-enclave-beta"));
+        assert(process_b.material_bindings().active_binding().anchor.hardware_fingerprint == "fp-enclave-beta-attestation-002");
+        assert(process_b.material_bindings().active_binding().previous_anchor.has_value());
+        assert(*process_b.material_bindings().active_binding().previous_anchor == identity::MaterialAnchorId("tpm-hardware-alpha"));
 
         std::cout << "[7] Verifying 2nd Genesis is strictly rejected...\n";
         auto gen2_res = process_b.genesis(ente_id);

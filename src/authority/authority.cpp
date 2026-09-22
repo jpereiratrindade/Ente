@@ -80,6 +80,15 @@ bool AuthorityLineage::is_authority_authorized(const AuthorityId& auth, const Au
     return false;
 }
 
+bool AuthorityLineage::is_epoch_legitimate(const AuthorityId& auth, const AuthorityEpochId& epoch) const noexcept {
+    for (const auto& ep : epochs_) {
+        if (ep.epoch_id == epoch && ep.authorized_authority == auth && ep.status != EpochStatus::Invalid) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool AuthorityLineage::verify_lineage_integrity() const noexcept {
     if (epochs_.empty()) {
         return false;

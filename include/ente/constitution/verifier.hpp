@@ -7,6 +7,9 @@
 #include <vector>
 #include <map>
 
+#include "ente/authority/authority.hpp"
+#include <functional>
+
 namespace ente::constitution {
 
 enum class ConstitutiveStatus : uint8_t {
@@ -49,7 +52,8 @@ public:
         const identity::IdentityState& identity,
         const std::optional<identity::GenesisRecord>& genesis,
         const history::RecoverableHistory& history,
-        const std::optional<epistemic::Interpretation>& current_interpretation
+        const std::optional<epistemic::Interpretation>& current_interpretation,
+        std::optional<std::reference_wrapper<const authority::AuthorityLineage>> authority_lineage = std::nullopt
     ) const noexcept;
 };
 

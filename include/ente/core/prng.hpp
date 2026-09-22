@@ -10,6 +10,7 @@ namespace ente::core {
 // Generates reproducible pseudorandom values derived deterministically from (Seed, EventId, Purpose)
 class EventScopedPRNG {
 public:
+    EventScopedPRNG() = default;
     explicit EventScopedPRNG(std::string_view global_seed) : global_seed_(global_seed) {}
 
     // Derive a deterministic uint64_t for a specific event and purpose

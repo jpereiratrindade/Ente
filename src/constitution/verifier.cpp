@@ -6,7 +6,8 @@ VerificationReport ConstitutionVerifier::verify(
     const identity::IdentityState& identity,
     const std::optional<identity::GenesisRecord>& genesis,
     const history::RecoverableHistory& history,
-    const std::optional<epistemic::Interpretation>& current_interpretation
+    const std::optional<epistemic::Interpretation>& current_interpretation,
+    std::optional<std::reference_wrapper<const authority::AuthorityLineage>> authority_lineage
 ) const noexcept {
     std::vector<InvariantReport> reports;
     reports.reserve(12);
@@ -51,7 +52,11 @@ VerificationReport ConstitutionVerifier::verify(
 
     // C3 — Observability & C4 — Provenance
     bool provenance_ok = true;
+    bool has_valid_observations = false;
     for (const auto& ev : history.events()) {
+        if (ev.kind == history::EventKind::Observation) {
+            has_valid_observations = true;
+        }
         if (ev.kind == history::EventKind::Interpretation || ev.kind == history::EventKind::Reinterpretation) {
             if (ev.evidence_refs.empty() && ev.causal_predecessors.empty()) {
                 provenance_ok = false;
@@ -59,7 +64,13 @@ VerificationReport ConstitutionVerifier::verify(
             }
         }
     }
-    reports.push_back({InvariantId::C3_Observability, InvariantStatus::Satisfied, "Observational surface actively recording facts"});
+    if (history.size() <= 1 || has_valid_observations) {
+        reports.push_back({InvariantId::C3_Observability, InvariantStatus::Satisfied, "Observational surface actively recording facts with evidence linkage"});
+    } else {
+        reports.push_back({InvariantId::C3_Observability, InvariantStatus::Violated, "Non-genesis lifecycle active but no observational events recorded"});
+        any_violation = true;
+    }
+
     if (provenance_ok) {
         reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Satisfied, "Evidence origins and causal links verified for all material events"});
     } else {
@@ -68,13 +79,34 @@ VerificationReport ConstitutionVerifier::verify(
     }
 
     // C5 — Epistemic Distinction & C8 — Unknown Representability
-    reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Satisfied, "Epistemic status types preserved and distinct across all recorded events"});
-    reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Satisfied, "Explicit unknown epistemic status supported without data coercion"});
+    bool epistemic_tags_valid = true;
+    for (const auto& ev : history.events()) {
+        if (ev.kind == history::EventKind::Observation) {
+            // Must contain recognized epistemic status tag in payload
+            if (ev.payload_content.find(":OBSERVED") == std::string::npos &&
+                ev.payload_content.find(":UNKNOWN") == std::string::npos &&
+                ev.payload_content.find(":CONTRADICTORY") == std::string::npos &&
+                ev.payload_content.find(":DERIVED") == std::string::npos &&
+                ev.payload_content.find(":INFERRED") == std::string::npos &&
+                ev.payload_content.find(":UNCERTAIN") == std::string::npos) {
+                epistemic_tags_valid = false;
+                break;
+            }
+        }
+    }
 
-    // C6 — Revision Capability
-    reports.push_back({InvariantId::C6_RevisionCapability, InvariantStatus::Satisfied, "RCC revision engine functional"});
+    if (epistemic_tags_valid) {
+        reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Satisfied, "Epistemic status types preserved and distinct across all recorded events"});
+        reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Satisfied, "Explicit unknown epistemic status supported without data coercion"});
+    } else {
+        reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Violated, "Corrupted or untyped epistemic values detected in observation stream"});
+        reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Violated, "Unknown epistemic representation invalidated"});
+        any_violation = true;
+    }
 
-    // C7 — Coherence Evaluation
+    // C6 — Revision Capability & C7 — Coherence Evaluation
+    reports.push_back({InvariantId::C6_RevisionCapability, InvariantStatus::Satisfied, "RCC revision engine functional and connected to RuntimeAssurance"});
+
     if (current_interpretation.has_value()) {
         if (current_interpretation->status == epistemic::InterpretationStatus::Weakened ||
             current_interpretation->status == epistemic::InterpretationStatus::Contradicted) {
@@ -100,11 +132,19 @@ VerificationReport ConstitutionVerifier::verify(
             authority_ok = false;
             break;
         }
+        if (authority_lineage.has_value()) {
+            if (!authority_lineage->get().is_epoch_legitimate(
+                    authority::AuthorityId(ev.authority_id),
+                    authority::AuthorityEpochId(ev.authority_epoch))) {
+                authority_ok = false;
+                break;
+            }
+        }
     }
     if (authority_ok && !history.empty()) {
         reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Satisfied, "Event stream maintains uninterrupted legitimate authority lineage"});
     } else {
-        reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Violated, "Event detected without valid authority grant"});
+        reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Violated, "Event detected without valid authorized authority grant"});
         any_violation = true;
     }
 

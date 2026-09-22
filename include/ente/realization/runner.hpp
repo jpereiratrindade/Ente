@@ -14,6 +14,8 @@
 #include <memory>
 #include <expected>
 
+#include "ente/core/prng.hpp"
+
 namespace ente::realization {
 
 struct ScenarioStep {
@@ -65,6 +67,7 @@ public:
     [[nodiscard]] const std::optional<epistemic::Interpretation>& current_interpretation() const noexcept { return current_interpretation_; }
     [[nodiscard]] const SyntheticDomain& domain() const noexcept { return domain_; }
     [[nodiscard]] const authority::AuthorityLineage& authority_lineage() const noexcept { return authority_; }
+    [[nodiscard]] const core::EventScopedPRNG& prng() const noexcept { return prng_; }
 
     void adopt_interpretation(epistemic::Interpretation new_interp);
 
@@ -73,6 +76,7 @@ private:
     identity::MaterialBindingRegistry bindings_;
     authority::AuthorityLineage authority_;
     history::RecoverableHistory rec_;
+    core::EventScopedPRNG prng_;
     std::optional<epistemic::Interpretation> current_interpretation_;
     rcc::ContextReassessment rcc_;
     assurance::RuntimeAssurance assurance_;
