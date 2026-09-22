@@ -15,12 +15,16 @@ endif()
 # Core library
 add_library(ente_core
     src/core/hash.cpp
+    src/core/prng.cpp
     src/identity/genesis_service.cpp
+    src/identity/material_anchor.cpp
     src/authority/authority.cpp
     src/history/rec.cpp
     src/epistemic/interpretation.cpp
     src/judgment/fixture.cpp
     src/rcc/reassessment.cpp
+    src/assurance/runtime_assurance.cpp
+    src/attestation/rats.cpp
     src/constitution/verifier.cpp
     src/realization/runner.cpp
 )
@@ -36,6 +40,14 @@ enable_testing()
 add_executable(test_genesis tests/test_genesis.cpp)
 target_link_libraries(test_genesis PRIVATE ente_core)
 add_test(NAME test_genesis COMMAND test_genesis)
+
+add_executable(test_material_binding tests/test_material_binding.cpp)
+target_link_libraries(test_material_binding PRIVATE ente_core)
+add_test(NAME test_material_binding COMMAND test_material_binding)
+
+add_executable(test_prng tests/test_prng.cpp)
+target_link_libraries(test_prng PRIVATE ente_core)
+add_test(NAME test_prng COMMAND test_prng)
 
 add_executable(test_authority tests/test_authority.cpp)
 target_link_libraries(test_authority PRIVATE ente_core)
