@@ -4,12 +4,11 @@
 #include <numeric>
 #include <fstream>
 #include <sstream>
+#include <unordered_set>
 
 namespace ente::history {
 
-namespace {
-
-[[nodiscard]] std::string compute_event_hash_string(const HistoryEvent& ev) noexcept {
+std::string RecoverableHistory::compute_event_hash_string(const HistoryEvent& ev) noexcept {
     std::string causal_concat;
     for (const auto& c : ev.causal_predecessors) {
         causal_concat += c.view();
@@ -35,8 +34,6 @@ namespace {
         ev.payload_digest.value
     );
 }
-
-} // namespace
 
 core::Digest RecoverableHistory::head_digest() const noexcept {
     if (events_.empty()) {
@@ -100,6 +97,11 @@ bool RecoverableHistory::contains_event(const core::EventId& id) const noexcept 
 }
 
 std::expected<void, core::EnteError> RecoverableHistory::append(HistoryEvent event) noexcept {
+    // 0. Verify uniqueness of EventId (C10/C12 invariant)
+    if (contains_event(event.id)) {
+        return std::unexpected(core::EnteError::DuplicateEventId);
+    }
+
     // 1. Verify chronological progression
     if (!events_.empty()) {
         if (event.logical_time < events_.back().logical_time) {
@@ -145,9 +147,16 @@ bool RecoverableHistory::verify_integrity() const noexcept {
     }
 
     core::Digest expected_prev; // Starts at zero
+    std::unordered_set<std::string> seen_event_ids;
 
     for (size_t i = 0; i < events_.size(); ++i) {
         const auto& ev = events_[i];
+
+        // 0. Verify EventId uniqueness
+        if (seen_event_ids.contains(ev.id.value)) {
+            return false;
+        }
+        seen_event_ids.insert(ev.id.value);
 
         // 1. Check previous event linking
         if (ev.previous_event_digest != expected_prev) {

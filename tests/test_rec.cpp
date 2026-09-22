@@ -34,10 +34,17 @@ int main() {
     assert(rec.size() == 3);
     assert(rec.verify_integrity());
 
-    // 4. Test Tampering Detection (FAIL-002: C10, C12 falsification)
+    // 4. Test Duplicate EventId rejection (C10/C12 invariant)
+    auto ev_duplicate = rec.create_event(EventKind::Observation, id, 3, {ev2.id}, {ev_id}, "DUPLICATE_PAYLOAD");
+    ev_duplicate.id = ev0.id; // Forge duplicate id of Genesis
+    auto dup_res = rec.append(ev_duplicate);
+    assert(!dup_res.has_value());
+    assert(dup_res.error() == EnteError::DuplicateEventId);
+
+    // 5. Test Tampering Detection (FAIL-002: C10, C12 falsification)
     rec.tamper_event_payload_for_testing(1, "CORRUPTED_TAMPERED_PAYLOAD");
     assert(!rec.verify_integrity());
 
-    std::cout << "[PASS] test_rec: Hash-chain, causal links, and tamper detection (C10, C12) verified.\n";
+    std::cout << "[PASS] test_rec: Hash-chain, causal links, duplicate EventId rejection, and tamper detection (C10, C12) verified.\n";
     return 0;
 }

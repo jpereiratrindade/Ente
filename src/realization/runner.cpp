@@ -217,9 +217,27 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
             };
         }
 
+        if (ev.payload_content.starts_with("RCC:PERTURBATION:")) {
+            if (instance.current_interpretation_.has_value()) {
+                if (ev.payload_content.find("Challenged") != std::string::npos ||
+                    ev.payload_content.find("Incompatible") != std::string::npos) {
+                    instance.current_interpretation_->status = epistemic::InterpretationStatus::Weakened;
+                }
+            }
+            instance.domain_.suspend_action();
+        }
+
         if (ev.payload_content.starts_with("RUNTIME_ASSURANCE:SAFE_HOLD") ||
+            ev.payload_content.starts_with("RUNTIME_ASSURANCE:EMERGENCY_STOP") ||
             ev.payload_content.starts_with("ACTION:SUSPEND_ACTION")) {
             instance.domain_.suspend_action();
+        } else if (ev.payload_content.starts_with("RUNTIME_ASSURANCE:ALLOW_ACTION") ||
+                   ev.payload_content.starts_with("ACTION:RESUME_ACTION") ||
+                   ev.kind == history::EventKind::CoherenceRestored) {
+            instance.domain_.resume_action(SyntheticDomain::Action::MoveForward);
+            if (instance.current_interpretation_.has_value()) {
+                instance.current_interpretation_->status = epistemic::InterpretationStatus::Current;
+            }
         }
     }
 
@@ -383,8 +401,9 @@ std::expected<void, core::EnteError> EnteRealization::step(
     auto app_ra = rec_.append(std::move(ra_event));
     if (!app_ra.has_value()) return app_ra;
 
-    // 7. Constitutional Violation Halt
+    // 7. Constitutional Violation Halt (Monotonically latches constitutive_status_)
     if (verification.status == constitution::ConstitutiveStatus::Violated) {
+        constitutive_status_ = constitution::ConstitutiveStatus::Violated;
         domain_.suspend_action();
         return std::unexpected(core::EnteError::ConstitutiveViolation);
     }

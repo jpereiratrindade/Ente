@@ -201,6 +201,54 @@ void run_order_invariance_test() {
     std::cout << "[PASS] Reverse order scenario sequence evaluated correctly.\n\n";
 }
 
+void run_cold_recovery_post_resolution_test() {
+    std::cout << "--- 5. Cold Recovery Post-Resolution Test (Hold -> Resume -> Restart) ---\n";
+
+    std::string test_file = "caselab_resumed_recovery.rec";
+    if (std::filesystem::exists(test_file)) {
+        std::filesystem::remove(test_file);
+    }
+
+    ente::core::IdentityId id{"ente-av-resolve-recover"};
+
+    {
+        // Process A: S0 (Depart) -> S2 (Hold) -> S5 (Recover Evidence -> Depart)
+        caselab::AgentWithEnte agent_a(id);
+        auto scenarios = caselab::get_kitkat_lab_scenarios();
+        
+        auto a1 = agent_a.process(scenarios[0].observations, 10); // S0
+        assert(a1 == caselab::VehicleAction::Depart);
+
+        auto a2 = agent_a.process(scenarios[2].observations, 20); // S2 anomaly -> Hold
+        assert(a2 == caselab::VehicleAction::Hold);
+        assert(agent_a.ente().domain().is_action_suspended());
+
+        auto a3 = agent_a.process(scenarios[5].observations, 30); // S5 resolved evidence -> Depart
+        assert(a3 == caselab::VehicleAction::Depart);
+        assert(!agent_a.ente().domain().is_action_suspended());
+
+        auto save_res = agent_a.ente().history().save_to_file(test_file);
+        assert(save_res.has_value());
+    }
+
+    {
+        // Process B: Recovers cold from disk after resolution
+        auto recover_res = ente::realization::EnteRealization::recover_from_file(test_file);
+        assert(recover_res.has_value());
+        auto& recovered_ente = *recover_res;
+
+        // Domain MUST be resumed and interpretation MUST be valid and current!
+        assert(!recovered_ente.domain().is_action_suspended());
+        assert(recovered_ente.current_interpretation().has_value());
+        assert(recovered_ente.current_interpretation()->status == ente::epistemic::InterpretationStatus::Current);
+        assert(recovered_ente.history().verify_integrity());
+        assert(recovered_ente.verify().is_valid());
+    }
+
+    std::filesystem::remove(test_file);
+    std::cout << "[PASS] Cold recovery accurately reconstructed resumed Depart state and Current interpretation.\n\n";
+}
+
 } // namespace
 
 int main() {
@@ -212,6 +260,7 @@ int main() {
     run_sequential_benchmark();
     run_bootstrap_anomaly_test();
     run_cold_recovery_under_anomaly_test();
+    run_cold_recovery_post_resolution_test();
     run_order_invariance_test();
 
     std::cout << ">>> ALL CASE-LAB EXPERIMENTAL ASSERTIONS PASSED WITH FULL ADVERSARIAL RIGOR <<<\n";

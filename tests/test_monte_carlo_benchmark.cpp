@@ -19,8 +19,8 @@ enum class StepNature : uint8_t {
 
 int main() {
     std::cout << "======================================================================\n";
-    std::cout << "       ENTE-0 MONTE CARLO STOCHASTIC BENCHMARK (5,000 RUNS)           \n";
-    std::cout << "      Statistical Falsification & Baseline Pareto Dominance Test      \n";
+    std::cout << "  ENTE-0 MONTE CARLO BENCHMARK (5,000 STOCHASTIC TRANSITIONS)         \n";
+    std::cout << "  Continuous Trajectory Statistical Falsification & Baseline Pareto   \n";
     std::cout << "======================================================================\n\n";
 
     constexpr size_t TOTAL_ITERATIONS = 5000;
@@ -196,7 +196,7 @@ int main() {
     std::cout << std::string(74, '-') << "\n\n";
 
     // Rigorous Statistical Invariant Asserts
-    assert(ente_unjustified == 0); // Strictly 0.0% accidents across 5,000 runs
+    assert(ente_unjustified == 0); // Strictly 0.0% accidents across 5,000 transitions
     assert(ente_unnecessary == 0); // Strictly 0.0% nuisance stops
     assert(b0_unjustified > 0);
     assert(b1_unjustified > 0);
@@ -206,7 +206,7 @@ int main() {
     // Export CSV dataset for scientific reporting
     std::ofstream csv_out("monte_carlo_metrics.csv", std::ios::out | std::ios::trunc);
     if (csv_out.is_open()) {
-        csv_out << "Agent,TotalRuns,SafeCases,HazardousCases,UnjustifiedCount,UnjustifiedRate,UnnecessaryCount,UnnecessaryRate,PValueHazardReduction\n";
+        csv_out << "Agent,TotalTransitions,SafeCases,HazardousCases,UnjustifiedCount,UnjustifiedRate,UnnecessaryCount,UnnecessaryRate,PValueHazardReduction\n";
         auto write_row = [&](std::string_view name, size_t uj, size_t un) {
             double uj_pct = (double)uj / (double)total_hazardous_cases;
             double un_pct = (double)un / (double)total_safe_cases;
@@ -227,6 +227,6 @@ int main() {
     assert(ente.history().verify_integrity());
     assert(ente.history().size() > TOTAL_ITERATIONS);
 
-    std::cout << ">>> MONTE CARLO STATISTICAL PARETO-DOMINANCE PROVEN OVER " << TOTAL_ITERATIONS << " RUNS <<<\n";
+    std::cout << ">>> PARETO-DOMINANCE OBSERVED OVER 5,000 EVALUATED STOCHASTIC TRANSITIONS <<<\n";
     return 0;
 }

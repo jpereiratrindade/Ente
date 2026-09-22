@@ -1,4 +1,6 @@
 #include "ente/constitution/verifier.hpp"
+#include "ente/history/rec.hpp"
+#include "ente/core/hash.hpp"
 
 namespace ente::constitution {
 
@@ -190,17 +192,31 @@ VerificationReport ConstitutionVerifier::verify_step(
         any_violation = true;
     }
 
+    // Recalculate Cryptographic Digests in O(1) for latest step
+    core::Digest computed_p_digest = core::HashUtil::sha256(latest_event.payload_content);
+    bool payload_hash_ok = (computed_p_digest == latest_event.payload_digest);
+
+    std::string hash_input = history::RecoverableHistory::compute_event_hash_string(latest_event);
+    core::Digest computed_e_digest = core::HashUtil::sha256(hash_input);
+    bool event_hash_ok = (computed_e_digest == latest_event.event_digest) && !latest_event.event_digest.is_zero();
+
     // C10/C12 — Temporal / Hash Link on latest event
-    if (!latest_event.event_digest.is_zero()) {
-        reports.push_back({InvariantId::C10_TemporalIntegrity, InvariantStatus::Satisfied, "Step temporal link intact"});
-        reports.push_back({InvariantId::C12_HistoryRecoverability, InvariantStatus::Satisfied, "Step event digest valid"});
+    if (event_hash_ok && payload_hash_ok) {
+        reports.push_back({InvariantId::C10_TemporalIntegrity, InvariantStatus::Satisfied, "Step temporal hash-chain verified cryptographically"});
+        reports.push_back({InvariantId::C12_HistoryRecoverability, InvariantStatus::Satisfied, "Step event digest cryptographically authentic"});
     } else {
-        reports.push_back({InvariantId::C10_TemporalIntegrity, InvariantStatus::Violated, "Step event digest missing"});
+        reports.push_back({InvariantId::C10_TemporalIntegrity, InvariantStatus::Violated, "Step event digest or payload digest corrupted"});
+        reports.push_back({InvariantId::C12_HistoryRecoverability, InvariantStatus::Violated, "Step event digest mismatch"});
         any_violation = true;
     }
 
     // C2 — Continuity
-    reports.push_back({InvariantId::C2_Continuity, InvariantStatus::Satisfied, "Step continuous"});
+    if (latest_event.identity == identity.id) {
+        reports.push_back({InvariantId::C2_Continuity, InvariantStatus::Satisfied, "Step continuous and bound to singular identity"});
+    } else {
+        reports.push_back({InvariantId::C2_Continuity, InvariantStatus::Violated, "Step identity discontinuous"});
+        any_violation = true;
+    }
 
     // C3 / C4 — Observability & Provenance on latest event
     if (latest_event.kind == history::EventKind::Interpretation || latest_event.kind == history::EventKind::Reinterpretation) {
@@ -215,9 +231,27 @@ VerificationReport ConstitutionVerifier::verify_step(
         reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Satisfied, "Step provenance verified"});
     }
 
-    // C5 / C8 — Epistemic Distinction
-    reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Satisfied, "Step epistemic status preserved"});
-    reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Satisfied, "Step unknown represented"});
+    // C5 / C8 — Epistemic Distinction & Unknown Representability
+    bool epistemic_status_valid = true;
+    if (latest_event.kind == history::EventKind::Observation) {
+        epistemic_status_valid = (
+            latest_event.payload_content.find(":OBSERVED") != std::string::npos ||
+            latest_event.payload_content.find(":UNKNOWN") != std::string::npos ||
+            latest_event.payload_content.find(":CONTRADICTORY") != std::string::npos ||
+            latest_event.payload_content.find(":DERIVED") != std::string::npos ||
+            latest_event.payload_content.find(":INFERRED") != std::string::npos ||
+            latest_event.payload_content.find(":UNCERTAIN") != std::string::npos
+        );
+    }
+
+    if (epistemic_status_valid) {
+        reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Satisfied, "Step epistemic status preserved and distinct"});
+        reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Satisfied, "Step unknown representation supported"});
+    } else {
+        reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Violated, "Step epistemic tag corrupted or untyped"});
+        reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Violated, "Step unknown representation invalidated"});
+        any_violation = true;
+    }
 
     // C6 — Revision Capability
     reports.push_back({InvariantId::C6_RevisionCapability, InvariantStatus::Satisfied, "RCC active"});

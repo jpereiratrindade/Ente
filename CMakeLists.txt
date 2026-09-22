@@ -115,4 +115,12 @@ target_link_libraries(clinical_lab PRIVATE ente_core)
 target_include_directories(clinical_lab PRIVATE examples/clinical-lab)
 add_test(NAME test_clinical_lab COMMAND clinical_lab)
 
+# CTest Suite Categorization Labels
+set_tests_properties(test_monte_carlo_benchmark PROPERTIES LABELS "benchmark;monte_carlo")
+set_tests_properties(test_rec_longevity PROPERTIES LABELS "long;performance;longevity")
+set_tests_properties(test_chaos_invariants PROPERTIES LABELS "chaos;security")
+set_tests_properties(test_case_lab PROPERTIES LABELS "case_lab;domain")
+set_tests_properties(test_clinical_lab PROPERTIES LABELS "clinical_lab;domain")
+
+
 

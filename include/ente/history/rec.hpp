@@ -30,6 +30,9 @@ public:
     [[nodiscard]] std::optional<HistoryEvent> find_event(const core::EventId& id) const noexcept;
     [[nodiscard]] bool contains_event(const core::EventId& id) const noexcept;
     
+    // Canonical event hash input serialization
+    [[nodiscard]] static std::string compute_event_hash_string(const HistoryEvent& ev) noexcept;
+
     // Create an event with auto-calculated digests
     [[nodiscard]] HistoryEvent create_event(
         EventKind kind,

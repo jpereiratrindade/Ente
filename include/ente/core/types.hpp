@@ -70,7 +70,8 @@ enum class EnteError : uint8_t {
     ConstitutiveViolation,
     InsufficientEvidence,
     UnknownStateEncountered,
-    InvalidPredecessor
+    InvalidPredecessor,
+    DuplicateEventId
 };
 
 [[nodiscard]] constexpr std::string_view to_string(EnteError err) noexcept {
@@ -85,6 +86,7 @@ enum class EnteError : uint8_t {
         case EnteError::InsufficientEvidence: return "InsufficientEvidence";
         case EnteError::UnknownStateEncountered: return "UnknownStateEncountered";
         case EnteError::InvalidPredecessor: return "InvalidPredecessor";
+        case EnteError::DuplicateEventId: return "DuplicateEventId";
     }
     return "UnknownError";
 }

@@ -34,16 +34,19 @@ int main() {
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
 
-    double events_per_sec = static_cast<double>(EVENTS_TO_STREAM) / duration.count();
+    size_t committed_events = ente.history().size();
+    double transitions_per_sec = static_cast<double>(EVENTS_TO_STREAM) / duration.count();
+    double rec_events_per_sec = static_cast<double>(committed_events) / duration.count();
 
-    std::cout << "--- Longevity Results ---\n";
-    std::cout << "  - Events Appended & Verified: " << EVENTS_TO_STREAM << "\n";
-    std::cout << "  - Final Ledger Size:          " << ente.history().size() << " events\n";
-    std::cout << "  - Total Execution Time:       " << std::fixed << std::setprecision(3) << duration.count() << " seconds\n";
-    std::cout << "  - Sustained Throughput:       " << std::fixed << std::setprecision(1) << events_per_sec << " events/second\n\n";
+    std::cout << "--- Longevity & Throughput Results ---\n";
+    std::cout << "  - Transitions Executed:       " << EVENTS_TO_STREAM << " steps\n";
+    std::cout << "  - REC Events Committed:       " << committed_events << " events\n";
+    std::cout << "  - Continuous Execution Time:  " << std::fixed << std::setprecision(3) << duration.count() << " seconds\n";
+    std::cout << "  - Transition Throughput:      " << std::fixed << std::setprecision(1) << transitions_per_sec << " steps/second\n";
+    std::cout << "  - REC Ingestion Throughput:   " << std::fixed << std::setprecision(1) << rec_events_per_sec << " events/second\n\n";
 
     // Periodic / Final Full Audit (O(H))
-    std::cout << "[Audit] Executing full historical audit from Genesis to HEAD (" << ente.history().size() << " events)...\n";
+    std::cout << "[Audit] Executing full historical audit from Genesis to HEAD (" << committed_events << " events)...\n";
     auto full_audit_start = std::chrono::high_resolution_clock::now();
     assert(ente.history().verify_integrity());
     auto final_report = ente.verify();
@@ -52,6 +55,6 @@ int main() {
     std::chrono::duration<double> audit_duration = full_audit_end - full_audit_start;
 
     std::cout << "  - Full Historical Audit Time: " << std::fixed << std::setprecision(3) << audit_duration.count() << " seconds\n";
-    std::cout << ">>> 10,000 CONTINUOUS EVENTS EXECUTED WITH FULL SCALABILITY AND CAUSAL INTEGRITY <<<\n";
+    std::cout << ">>> 10,000 CONTINUOUS TRANSITIONS EXECUTED WITH FULL SCALABILITY AND CAUSAL INTEGRITY <<<\n";
     return 0;
 }
