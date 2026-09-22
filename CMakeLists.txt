@@ -115,12 +115,20 @@ target_link_libraries(clinical_lab PRIVATE ente_core)
 target_include_directories(clinical_lab PRIVATE examples/clinical-lab)
 add_test(NAME test_clinical_lab COMMAND clinical_lab)
 
+# Application / Case Lab 003: ENTE Field Station & Observatory (Precision Irrigation)
+add_executable(ente_field_station examples/field-station/main.cpp)
+target_link_libraries(ente_field_station PRIVATE ente_core)
+target_include_directories(ente_field_station PRIVATE examples/field-station)
+add_test(NAME test_field_station COMMAND ente_field_station)
+
 # CTest Suite Categorization Labels
 set_tests_properties(test_monte_carlo_benchmark PROPERTIES LABELS "benchmark;monte_carlo")
 set_tests_properties(test_rec_longevity PROPERTIES LABELS "long;performance;longevity")
 set_tests_properties(test_chaos_invariants PROPERTIES LABELS "chaos;security")
 set_tests_properties(test_case_lab PROPERTIES LABELS "case_lab;domain")
 set_tests_properties(test_clinical_lab PROPERTIES LABELS "clinical_lab;domain")
+set_tests_properties(test_field_station PROPERTIES LABELS "field_station;visual;domain")
+
 
 
 

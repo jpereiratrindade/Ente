@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ENTE Observatory — Field Station 001</title>
+  <meta name="description" content="ENTE Observatory: Live execution and epistemic governance of an autonomous agricultural field station." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="blackout-screen" class="blackout-overlay hidden">
+    <div class="blackout-content">
+      <div class="power-lost-icon">⚡</div>
+      <h2>POWER LOSS SIMULATED</h2>
+      <p>Process terminated abruptly. Volatile memory cleared.</p>
+      <div class="recovery-spinner"></div>
+      <div class="recovery-text">Starting new process & reconstructing state from REC ledger...</div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+
+    <!-- =======================================================
+         HEADER / ENTE CONSTITUTIVE BANNER
+         ======================================================= -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="project-badge">ENTE OBSERVATORY</div>
+        <h1 class="station-title">Field Station 001 <span class="dim">· Precision Irrigation</span></h1>
+      </div>
+
+      <div class="header-meta">
+        <div class="meta-item">
+          <small>IDENTITY</small>
+          <strong id="meta-id">ente-field-001</strong>
+        </div>
+        <div class="meta-item">
+          <small>GENESIS DIGEST</small>
+          <strong class="mono" id="meta-genesis">9af2c04b8e...</strong>
+        </div>
+        <div class="meta-item">
+          <small>AUTHORITY</small>
+          <strong id="meta-authority">A0 · Epoch 0</strong>
+        </div>
+        <div class="meta-item">
+          <small>SUBSTRATE</small>
+          <strong id="meta-hardware" class="highlight-chip">Raspberry Pi A (RP-A921)</strong>
+        </div>
+        <div class="meta-item">
+          <small>CONSTITUTION</small>
+          <span class="status-pill status-pill-green" id="meta-constitution">VALID (C1..C14)</span>
+        </div>
+      </div>
+    </header>
+
+
+    <!-- =======================================================
+         DEMO CONTROL TOOLBAR
+         ======================================================= -->
+    <div class="control-bar">
+      <div class="control-label">ACT SCENARIOS:</div>
+      <div class="button-group">
+        <button id="btn-act-1" class="btn-demo active" onclick="setAct(1)">1. Genesis</button>
+        <button id="btn-act-2" class="btn-demo" onclick="setAct(2)">2. Nominal</button>
+        <button id="btn-act-3" class="btn-demo" onclick="setAct(3)">3. Sensor Conflict</button>
+        <button id="btn-act-4" class="btn-demo" onclick="setAct(4)">4. Replace Hardware</button>
+        <button id="btn-act-5" class="btn-demo" onclick="setAct(5)">5. Power Cycle</button>
+      </div>
+
+      <div class="tour-control">
+        <button id="btn-tour" class="btn-tour" onclick="toggleAutoTour()">▶ Start 45s Auto-Tour</button>
+      </div>
+    </div>
+
+
+    <!-- =======================================================
+         3-COLUMN MAIN DASHBOARD
+         ======================================================= -->
+    <main class="dashboard-grid">
+
+      <!-- COLUMN 1: ENVIRONMENT & SENSORS -->
+      <section class="dash-col col-env">
+        <div class="col-header">
+          <span class="col-tag">TELEMETRY</span>
+          <h2>Environment & Sensors</h2>
+        </div>
+
+        <div class="sensors-list">
+          
+          <div class="sensor-card" id="card-sensor-a">
+            <div class="sensor-title">
+              <span>Soil Moisture Probe A</span>
+              <span class="sensor-pin mono">GPIO_23</span>
+            </div>
+            <div class="sensor-reading">
+              <span class="reading-val" id="val-soil-a">21%</span>
+              <span class="reading-status status-dry" id="badge-soil-a">DRY</span>
+            </div>
+            <div class="meter-bar">
+              <div class="meter-fill" id="fill-soil-a" style="width: 21%"></div>
+            </div>
+          </div>
+
+          <div class="sensor-card" id="card-sensor-b">
+            <div class="sensor-title">
+              <span>Soil Moisture Probe B (Redundant)</span>
+              <span class="sensor-pin mono">GPIO_24</span>
+            </div>
+            <div class="sensor-reading">
+              <span class="reading-val" id="val-soil-b">22%</span>
+              <span class="reading-status status-dry" id="badge-soil-b">DRY</span>
+            </div>
+            <div class="meter-bar">
+              <div class="meter-fill" id="fill-soil-b" style="width: 22%"></div>
+            </div>
+          </div>
+
+          <div class="sensor-card">
+            <div class="sensor-title">
+              <span>Rain Detection Optical Sensor</span>
+              <span class="sensor-pin mono">I2C_0x48</span>
+            </div>
+            <div class="sensor-reading">
+              <span class="reading-val" id="val-rain">No Rain</span>
+              <span class="reading-status status-ok" id="badge-rain">CLEAR</span>
+            </div>
+          </div>
+
+          <div class="sensor-card">
+            <div class="sensor-title">
+              <span>Reservoir Water Tank</span>
+              <span class="sensor-pin mono">ANALOG_0</span>
+            </div>
+            <div class="sensor-reading">
+              <span class="reading-val" id="val-tank">73%</span>
+              <span class="reading-status status-ok">SUFFICIENT</span>
+            </div>
+            <div class="meter-bar">
+              <div class="meter-fill meter-tank" id="fill-tank" style="width: 73%"></div>
+            </div>
+          </div>
+
+          <div class="sensor-card">
+            <div class="sensor-title">
+              <span>Flow Sensor Telemetry</span>
+              <span class="sensor-pin mono">PULSE_IN</span>
+            </div>
+            <div class="sensor-reading">
+              <span class="reading-val" id="val-flow">OK</span>
+              <span class="reading-status status-ok">NORMAL</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- COLUMN 2: ENTE CONSTITUTIVE GOVERNANCE -->
+      <section class="dash-col col-ente">
+        <div class="col-header">
+          <span class="col-tag col-tag-accent">CONSTITUTIVE GOVERNANCE</span>
+          <h2>ENTE Brain (Generic Agent)</h2>
+        </div>
+
+        <div class="ente-blocks">
+
+          <!-- Interpretation Block -->
+          <div class="ente-card" id="card-interpretation">
+            <div class="card-eyebrow">ACTIVE EPISTEMIC INTERPRETATION</div>
+            <div class="interpretation-display" id="val-interpretation">
+              "Soil moisture critically dry. Irrigation required."
+            </div>
+            <div class="epistemic-status-row">
+              <span>Typing:</span>
+              <strong id="val-epistemic-type" class="mono status-pill status-pill-green">Observed</strong>
+            </div>
+          </div>
+
+          <!-- RCC Status -->
+          <div class="ente-card" id="card-rcc">
+            <div class="card-eyebrow">RCC (CONTINUOUS CONTEXT REASSESSMENT)</div>
+            <div class="rcc-state-row">
+              <div class="rcc-badge rcc-supported" id="badge-rcc">
+                SUPPORTED
+              </div>
+              <div class="rcc-desc" id="desc-rcc">
+                Evidence coherently justifies the operational continuation.
+              </div>
+            </div>
+          </div>
+
+          <!-- Runtime Assurance -->
+          <div class="ente-card" id="card-assurance">
+            <div class="card-eyebrow">RUNTIME ASSURANCE GATEWAY</div>
+            <div class="assurance-directive-row">
+              <div class="directive-box directive-allow" id="box-assurance">
+                ALLOW_ACTION
+              </div>
+              <div class="directive-desc" id="desc-assurance">
+                Constitutional invariants and epistemic support verified.
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Material Anchor -->
+          <div class="ente-card">
+            <div class="card-eyebrow">MATERIAL SUBSTRATE & RIT ANCHOR</div>
+            <div class="material-details">
+              <div class="material-row">
+                <span>Hardware ID:</span>
+                <strong class="mono" id="val-material-id">RP-A921</strong>
+              </div>
+              <div class="material-row">
+                <span>Platform:</span>
+                <span id="val-platform">Raspberry Pi 4 Model B</span>
+              </div>
+              <div class="material-row">
+                <span>Continuity Proof:</span>
+                <span class="status-pill status-pill-green">RIT Verified</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- COLUMN 3: FIELD ACTION -->
+      <section class="dash-col col-action">
+        <div class="col-header">
+          <span class="col-tag">DOMAIN ACTUATOR</span>
+          <h2>Field Actuation</h2>
+        </div>
+
+        <div class="actuator-panel">
+          
+          <div class="valve-status-card" id="card-valve">
+            <div class="valve-indicator-wrapper">
+              <div class="valve-indicator valve-open" id="indicator-valve">
+                <span id="label-valve">VALVE OPEN</span>
+              </div>
+            </div>
+
+            <div class="actuator-metrics">
+              <div class="metric-item">
+                <small>VALVE DIRECTIVE</small>
+                <strong id="metric-valve-dir">OPEN_VALVE</strong>
+              </div>
+              <div class="metric-item">
+                <small>WATER OUTPUT</small>
+                <strong id="metric-flow-rate">18.5 L/min</strong>
+              </div>
+              <div class="metric-item">
+                <small>SECTOR STATE</small>
+                <strong id="metric-sector-state" class="status-pill status-pill-green">IRRIGATING</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Field Animation Simulator -->
+          <div class="field-anim-box">
+            <div class="sprinkler-head"></div>
+            <div class="water-spray active" id="water-spray"></div>
+            <div class="crop-row">
+              <span class="crop">🌱</span>
+              <span class="crop">🌱</span>
+              <span class="crop">🌱</span>
+              <span class="crop">🌱</span>
+              <span class="crop">🌱</span>
+            </div>
+            <div class="ground-layer"></div>
+          </div>
+
+          <!-- Pedagogical summary quote -->
+          <div class="pedagogical-quote" id="pedagogical-quote">
+            "Nominal conditions: soil is dry and tank is full. ENTE validates epistemic justification and allows irrigation."
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+
+    <!-- =======================================================
+         REC BIOGRAPHY / TIMELINE
+         ======================================================= -->
+    <section class="rec-section">
+      <div class="rec-header">
+        <div class="rec-title-group">
+          <span class="col-tag col-tag-accent">REC · RECOVERABLE EVENT LEDGER</span>
+          <h2>Biography of the ENTE (Genesis to HEAD)</h2>
+        </div>
+        <div class="rec-stats mono">
+          <span id="rec-head-count">5 Events</span> · <span id="rec-audit-status" style="color:var(--accent)">Full O(H) Audit Passing</span>
+        </div>
+      </div>
+
+      <div class="timeline-container">
+        <div class="timeline-track" id="timeline-track">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+
+  <!-- Event Modal for Timeline Node Inspection -->
+  <div id="event-modal" class="modal-backdrop hidden" onclick="closeModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="modal-title">Event E00001 · GENESIS</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-row">
+          <span class="modal-label">Logical Time:</span>
+          <span class="mono" id="modal-time">0</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">Event Digest (SHA-256):</span>
+          <span class="mono" id="modal-hash">9af2c04b8e...</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">Hardware Anchor:</span>
+          <span class="mono" id="modal-hardware">RP-A921</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">Authority Lineage:</span>
+          <span id="modal-authority">A0 (Epoch 0)</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">Epistemic Consequence:</span>
+          <span id="modal-epistemic">Genesis established</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">Description:</span>
+          <p id="modal-desc" class="modal-description-text"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
