@@ -5,11 +5,18 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Compiler warnings
+# Compiler warnings and Sanitizers
 if(MSVC)
     add_compile_options(/W4 /permissive-)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion)
+endif()
+
+option(ENABLE_SANITIZERS "Enable AddressSanitizer and LeakSanitizer" OFF)
+if(ENABLE_SANITIZERS)
+    message(STATUS "Enabling AddressSanitizer and LeakSanitizer")
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address)
 endif()
 
 # Core library

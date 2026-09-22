@@ -1,17 +1,17 @@
 #pragma once
 
 #include "clinical_domain.hpp"
-#include "ente/realization/runner.hpp"
+#include "ente/domain/generic_agent.hpp"
 #include <format>
 
 namespace clinicallab {
 
-// Autonomous Clinical Infusion Pump Mediated by ENTE-0 Runtime
+// Autonomous Clinical Infusion Pump Mediated by ENTE-0 Generic Domain Framework
 class AgentWithEnte {
 public:
-    explicit AgentWithEnte(ente::core::IdentityId id) : id_(id) {
-        auto gen_res = ente_.genesis(id_);
-        (void)gen_res;
+    explicit AgentWithEnte(ente::core::IdentityId id)
+        : generic_agent_(std::string(id.view()))
+    {
     }
 
     InfusionAction process(const std::vector<ClinicalObservation>& observations, uint64_t logical_time) noexcept {
@@ -34,29 +34,16 @@ public:
             });
         }
 
-        // Pass telemetry through ENTE-0 pipeline
-        auto step_res = ente_.step(logical_time, ente_obs, "Clinical Telemetry Step");
-        if (!step_res.has_value()) {
-            current_state_ = PumpState::Holding;
-            return InfusionAction::HoldTitration;
-        }
-
-        if (ente_.domain().is_action_suspended()) {
-            current_state_ = PumpState::Holding;
-            return InfusionAction::HoldTitration;
-        }
-
-        current_state_ = PumpState::Titrating;
-        return InfusionAction::TitrateUp;
+        return generic_agent_.decide_action(logical_time, ente_obs, InfusionAction::TitrateUp, "Clinical Telemetry Step");
     }
 
-    [[nodiscard]] PumpState state() const noexcept { return current_state_; }
-    [[nodiscard]] const ente::realization::EnteRealization& ente() const noexcept { return ente_; }
+    [[nodiscard]] PumpState state() const noexcept { return generic_agent_.domain().current_state(); }
+    [[nodiscard]] const ente::realization::EnteRealization& ente() const noexcept { return generic_agent_.ente(); }
+    [[nodiscard]] const InfusionPumpDomain& domain() const noexcept { return generic_agent_.domain(); }
 
 private:
-    ente::core::IdentityId id_;
-    ente::realization::EnteRealization ente_;
-    PumpState current_state_{PumpState::Stopped};
+    ente::domain::GenericAgentWithEnte<InfusionPumpDomain> generic_agent_;
 };
 
 } // namespace clinicallab
+

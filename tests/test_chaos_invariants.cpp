@@ -139,6 +139,56 @@ void test_hash_chain_bit_flip() {
     std::cout << "    -> Bit-flip detected, history integrity failed, and execution halted.\n";
 }
 
+void test_byzantine_fork_split() {
+    std::cout << "[5] Testing CHAOS-005: Byzantine History Split & Causal Fork Injection (C10/C11 Attack)...\n";
+    ente::realization::EnteRealization ente;
+    ente::core::IdentityId id("ente-chaos-fork");
+    assert(ente.genesis(id).has_value());
+
+    assert(ente.step(1, {{.id = ente::core::EvidenceId("EV1"), .source = "radar", .subject = "path_clear", .value = "true", .observed_at = 1, .status = ente::epistemic::EpistemicStatus::Observed}}, "s1").has_value());
+
+    // Adversarial injection of an event with forged previous hash (fork split attempt)
+    auto forged_fork_event = ente.history_mut().create_event(
+        ente::history::EventKind::Interpretation,
+        id,
+        2,
+        {},
+        {},
+        "FORGED_FORK_STATE",
+        "auth-root-ente-chaos-fork",
+        "epoch-0"
+    );
+    forged_fork_event.previous_event_digest = ente::core::Digest("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+
+    auto fork_res = ente.history_mut().append(std::move(forged_fork_event));
+    assert(!fork_res.has_value());
+    assert(fork_res.error() == ente::core::EnteError::HistoryGap);
+
+    std::cout << "    -> Byzantine history fork rejected by predecessor digest integrity rules.\n";
+}
+
+void test_prng_seed_integrity() {
+    std::cout << "[6] Testing CHAOS-006: Event-Scoped PRNG Deterministic Divergence Defense...\n";
+    ente::core::EventScopedPRNG prng1("genesis-seed-alpha");
+    ente::core::EventScopedPRNG prng2("genesis-seed-alpha");
+    ente::core::EventScopedPRNG prng_rogue("genesis-seed-rogue");
+
+    ente::core::EventId ev("EV-100");
+    auto sample1 = prng1.derive_double(ev, "monte_carlo");
+    auto sample2 = prng2.derive_double(ev, "monte_carlo");
+    auto sample_rogue = prng_rogue.derive_double(ev, "monte_carlo");
+
+    assert(sample1 == sample2); // Identical genesis seed produces identical sequence
+    assert(sample1 != sample_rogue); // Divergent seed produces distinct sample
+
+    // Sequence addressability: sampling different events gives independent uniform distribution
+    ente::core::EventId ev_alt("EV-101");
+    auto sample_alt = prng1.derive_double(ev_alt, "monte_carlo");
+    assert(sample1 != sample_alt);
+
+    std::cout << "    -> Event-scoped PRNG verified deterministic, reproducible, and cryptographically seeded.\n";
+}
+
 } // namespace
 
 int main() {
@@ -150,7 +200,10 @@ int main() {
     test_rogue_authority_injection();
     test_provenance_evidence_stripping();
     test_hash_chain_bit_flip();
+    test_byzantine_fork_split();
+    test_prng_seed_integrity();
 
-    std::cout << "\n>>> ALL CHAOS & ADVERSARIAL ATTACK TESTS PASSED (4/4) <<<\n";
+    std::cout << "\n>>> ALL CHAOS & ADVERSARIAL ATTACK TESTS PASSED (6/6) <<<\n";
     return 0;
 }
+

@@ -1,18 +1,17 @@
 #pragma once
 
 #include "case_domain.hpp"
-#include "ente/realization/runner.hpp"
+#include "ente/domain/generic_agent.hpp"
 #include <format>
 
 namespace caselab {
 
-// Autonomous Agent Mediated by ENTE-0 Runtime
+// Autonomous Agent Mediated by ENTE-0 Generic Domain Framework
 class AgentWithEnte {
 public:
-    explicit AgentWithEnte(ente::core::IdentityId id) : id_(id) {
-        // 1. Initialize Genesis with Simulated Material Anchor and Authority Root
-        auto gen_res = ente_.genesis(id_);
-        (void)gen_res;
+    explicit AgentWithEnte(ente::core::IdentityId id)
+        : generic_agent_(std::string(id.view()))
+    {
     }
 
     VehicleAction process(const std::vector<CaseObservation>& observations, uint64_t logical_time) noexcept {
@@ -35,30 +34,16 @@ public:
             });
         }
 
-        // 2. Pass observations through ENTE-0 pipeline (RCC + Action Support + Runtime Assurance)
-        auto step_res = ente_.step(logical_time, ente_obs, "CaseLab Step");
-        if (!step_res.has_value()) {
-            current_state_ = VehicleState::Holding;
-            return VehicleAction::Hold;
-        }
-
-        // 3. Query Domain State governed by Runtime Assurance
-        if (ente_.domain().is_action_suspended()) {
-            current_state_ = VehicleState::Holding;
-            return VehicleAction::Hold;
-        }
-
-        current_state_ = VehicleState::Departing;
-        return VehicleAction::Depart;
+        return generic_agent_.decide_action(logical_time, ente_obs, VehicleAction::Depart, "CaseLab Step");
     }
 
-    [[nodiscard]] VehicleState state() const noexcept { return current_state_; }
-    [[nodiscard]] const ente::realization::EnteRealization& ente() const noexcept { return ente_; }
+    [[nodiscard]] VehicleState state() const noexcept { return generic_agent_.domain().current_state(); }
+    [[nodiscard]] const ente::realization::EnteRealization& ente() const noexcept { return generic_agent_.ente(); }
+    [[nodiscard]] const VehicleDomain& domain() const noexcept { return generic_agent_.domain(); }
 
 private:
-    ente::core::IdentityId id_;
-    ente::realization::EnteRealization ente_;
-    VehicleState current_state_{VehicleState::Stopped};
+    ente::domain::GenericAgentWithEnte<VehicleDomain> generic_agent_;
 };
 
 } // namespace caselab
+

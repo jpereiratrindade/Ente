@@ -4,6 +4,7 @@
 #include <string_view>
 #include <string>
 #include <vector>
+#include "ente/assurance/runtime_assurance.hpp"
 
 namespace clinicallab {
 
@@ -46,6 +47,36 @@ struct ClinicalObservation {
     std::string subject;
     std::string value;
     std::string epistemic_tag; // "OBSERVED", "UNKNOWN", "CONTRADICTORY"
+};
+
+class InfusionPumpDomain {
+public:
+    using ActionType = InfusionAction;
+    using StateType = PumpState;
+
+    [[nodiscard]] InfusionAction active_action() const noexcept { return action_; }
+    [[nodiscard]] PumpState current_state() const noexcept { return state_; }
+    [[nodiscard]] bool is_suspended() const noexcept { return suspended_; }
+    [[nodiscard]] static constexpr InfusionAction safe_hold_action() noexcept { return InfusionAction::HoldTitration; }
+
+    void apply_safety_directive(ente::assurance::SafetyDirective directive) noexcept {
+        if (directive == ente::assurance::SafetyDirective::SafeHold ||
+            directive == ente::assurance::SafetyDirective::EmergencyStop ||
+            directive == ente::assurance::SafetyDirective::DegradePerformance) {
+            suspended_ = true;
+            action_ = InfusionAction::HoldTitration;
+            state_ = PumpState::Holding;
+        } else {
+            suspended_ = false;
+            action_ = InfusionAction::TitrateUp;
+            state_ = PumpState::Titrating;
+        }
+    }
+
+private:
+    InfusionAction action_{InfusionAction::HoldTitration};
+    PumpState state_{PumpState::Stopped};
+    bool suspended_{false};
 };
 
 } // namespace clinicallab

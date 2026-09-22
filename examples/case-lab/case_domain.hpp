@@ -4,6 +4,7 @@
 #include <string_view>
 #include <string>
 #include <vector>
+#include "ente/assurance/runtime_assurance.hpp"
 
 namespace caselab {
 
@@ -42,6 +43,36 @@ struct CaseObservation {
     std::string subject;
     std::string value;
     std::string epistemic_tag; // "OBSERVED", "UNKNOWN", "CONTRADICTORY"
+};
+
+class VehicleDomain {
+public:
+    using ActionType = VehicleAction;
+    using StateType = VehicleState;
+
+    [[nodiscard]] VehicleAction active_action() const noexcept { return action_; }
+    [[nodiscard]] VehicleState current_state() const noexcept { return state_; }
+    [[nodiscard]] bool is_suspended() const noexcept { return suspended_; }
+    [[nodiscard]] static constexpr VehicleAction safe_hold_action() noexcept { return VehicleAction::Hold; }
+
+    void apply_safety_directive(ente::assurance::SafetyDirective directive) noexcept {
+        if (directive == ente::assurance::SafetyDirective::SafeHold ||
+            directive == ente::assurance::SafetyDirective::EmergencyStop ||
+            directive == ente::assurance::SafetyDirective::DegradePerformance) {
+            suspended_ = true;
+            action_ = VehicleAction::Hold;
+            state_ = VehicleState::Holding;
+        } else {
+            suspended_ = false;
+            action_ = VehicleAction::Depart;
+            state_ = VehicleState::Departing;
+        }
+    }
+
+private:
+    VehicleAction action_{VehicleAction::Hold};
+    VehicleState state_{VehicleState::Stopped};
+    bool suspended_{false};
 };
 
 } // namespace caselab
