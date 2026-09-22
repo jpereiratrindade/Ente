@@ -4,11 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ENTE Observatory — Field Station 001</title>
-  <meta name="description" content="ENTE Observatory: Live execution and epistemic governance of an autonomous agricultural field station." />
+  <meta name="description" content="ENTE Observatory: Live epistemic resolution, active diagnostics and ontological continuity of an autonomous agricultural field station." />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
+  <!-- Power Loss Simulation Overlay -->
   <div id="blackout-screen" class="blackout-overlay hidden">
     <div class="blackout-content">
       <div class="power-lost-icon">⚡</div>
@@ -27,7 +28,7 @@
     <header class="app-header">
       <div class="header-left">
         <div class="project-badge">ENTE OBSERVATORY</div>
-        <h1 class="station-title">Field Station 001 <span class="dim">· Precision Irrigation</span></h1>
+        <h1 class="station-title">Field Station 001 <span class="dim">· Precision Irrigation & Active Epistemics</span></h1>
       </div>
 
       <div class="header-meta">
@@ -56,41 +57,60 @@
 
 
     <!-- =======================================================
-         DEMO CONTROL TOOLBAR
+         TOUR SELECTION & DEMO TOOLBAR
          ======================================================= -->
-    <div class="control-bar">
-      <div class="control-label">ACT SCENARIOS:</div>
-      <div class="button-group">
-        <button id="btn-act-1" class="btn-demo active" onclick="setAct(1)">1. Genesis</button>
-        <button id="btn-act-2" class="btn-demo" onclick="setAct(2)">2. Nominal</button>
-        <button id="btn-act-3" class="btn-demo" onclick="setAct(3)">3. Sensor Conflict</button>
-        <button id="btn-act-4" class="btn-demo" onclick="setAct(4)">4. Replace Hardware</button>
-        <button id="btn-act-5" class="btn-demo" onclick="setAct(5)">5. Power Cycle</button>
+    <div class="tour-selector-bar">
+      <div class="tour-tabs">
+        <button id="tab-tour-a" class="tab-tour active" onclick="switchTour('A')">
+          <span class="tour-badge">TOUR A</span>
+          <strong>Active Epistemic Resolution</strong>
+          <small>Doubt → Diagnostic Seeking → Reinterpretation → Resumed Action</small>
+        </button>
+
+        <button id="tab-tour-b" class="tab-tour" onclick="switchTour('B')">
+          <span class="tour-badge">TOUR B</span>
+          <strong>Ontological Continuity</strong>
+          <small>SafeHold → Hardware Migration (RIT) → Cold Crash Recovery</small>
+        </button>
       </div>
 
-      <div class="tour-control">
-        <button id="btn-tour" class="btn-tour" onclick="toggleAutoTour()">▶ Start 45s Auto-Tour</button>
+      <div class="tour-actions">
+        <div class="branch-toggle" id="branch-toggle-container">
+          <small>EVIDENCE OUTCOME:</small>
+          <button id="btn-outcome-dry" class="btn-outcome active" onclick="setResolutionOutcome(true)">Dry Soil (Resume Valve)</button>
+          <button id="btn-outcome-wet" class="btn-outcome" onclick="setResolutionOutcome(false)">Wet Soil (Hold Valve)</button>
+        </div>
+
+        <button id="btn-tour" class="btn-tour" onclick="toggleAutoTour()">▶ Start Auto-Tour</button>
+      </div>
+    </div>
+
+    <!-- Act Scenario Buttons Bar -->
+    <div class="control-bar">
+      <div class="control-label" id="acts-label">SCENARIO ACTS:</div>
+      <div class="button-group" id="act-buttons-container">
+        <!-- Populated dynamically by app.js depending on active Tour -->
       </div>
     </div>
 
 
     <!-- =======================================================
-         3-COLUMN MAIN DASHBOARD
+         4-COLUMN MAIN DASHBOARD
          ======================================================= -->
     <main class="dashboard-grid">
 
       <!-- COLUMN 1: ENVIRONMENT & SENSORS -->
       <section class="dash-col col-env">
         <div class="col-header">
-          <span class="col-tag">TELEMETRY</span>
-          <h2>Environment & Sensors</h2>
+          <span class="col-tag">PRIMARY TELEMETRY</span>
+          <h2>Field Environment</h2>
         </div>
 
         <div class="sensors-list">
           
           <div class="sensor-card" id="card-sensor-a">
             <div class="sensor-title">
-              <span>Soil Moisture Probe A</span>
+              <span>Soil Probe A (Primary)</span>
               <span class="sensor-pin mono">GPIO_23</span>
             </div>
             <div class="sensor-reading">
@@ -104,7 +124,7 @@
 
           <div class="sensor-card" id="card-sensor-b">
             <div class="sensor-title">
-              <span>Soil Moisture Probe B (Redundant)</span>
+              <span>Soil Probe B (Redundant)</span>
               <span class="sensor-pin mono">GPIO_24</span>
             </div>
             <div class="sensor-reading">
@@ -118,7 +138,7 @@
 
           <div class="sensor-card">
             <div class="sensor-title">
-              <span>Rain Detection Optical Sensor</span>
+              <span>Rain Optical Sensor</span>
               <span class="sensor-pin mono">I2C_0x48</span>
             </div>
             <div class="sensor-reading">
@@ -129,7 +149,7 @@
 
           <div class="sensor-card">
             <div class="sensor-title">
-              <span>Reservoir Water Tank</span>
+              <span>Reservoir Tank</span>
               <span class="sensor-pin mono">ANALOG_0</span>
             </div>
             <div class="sensor-reading">
@@ -138,17 +158,6 @@
             </div>
             <div class="meter-bar">
               <div class="meter-fill meter-tank" id="fill-tank" style="width: 73%"></div>
-            </div>
-          </div>
-
-          <div class="sensor-card">
-            <div class="sensor-title">
-              <span>Flow Sensor Telemetry</span>
-              <span class="sensor-pin mono">PULSE_IN</span>
-            </div>
-            <div class="sensor-reading">
-              <span class="reading-val" id="val-flow">OK</span>
-              <span class="reading-status status-ok">NORMAL</span>
             </div>
           </div>
 
@@ -172,27 +181,27 @@
               "Soil moisture critically dry. Irrigation required."
             </div>
             <div class="epistemic-status-row">
-              <span>Typing:</span>
+              <span>Evidential Typing:</span>
               <strong id="val-epistemic-type" class="mono status-pill status-pill-green">Observed</strong>
             </div>
           </div>
 
           <!-- RCC Status -->
           <div class="ente-card" id="card-rcc">
-            <div class="card-eyebrow">RCC (CONTINUOUS CONTEXT REASSESSMENT)</div>
+            <div class="card-eyebrow">RCC (CONTEXT REASSESSMENT)</div>
             <div class="rcc-state-row">
               <div class="rcc-badge rcc-supported" id="badge-rcc">
                 SUPPORTED
               </div>
               <div class="rcc-desc" id="desc-rcc">
-                Evidence coherently justifies the operational continuation.
+                Observation coherently justifies operational continuation.
               </div>
             </div>
           </div>
 
           <!-- Runtime Assurance -->
           <div class="ente-card" id="card-assurance">
-            <div class="card-eyebrow">RUNTIME ASSURANCE GATEWAY</div>
+            <div class="card-eyebrow">RUNTIME ASSURANCE DIRECTIVE</div>
             <div class="assurance-directive-row">
               <div class="directive-box directive-allow" id="box-assurance">
                 ALLOW_ACTION
@@ -203,30 +212,11 @@
             </div>
           </div>
 
-          <!-- Active Material Anchor -->
-          <div class="ente-card">
-            <div class="card-eyebrow">MATERIAL SUBSTRATE & RIT ANCHOR</div>
-            <div class="material-details">
-              <div class="material-row">
-                <span>Hardware ID:</span>
-                <strong class="mono" id="val-material-id">RP-A921</strong>
-              </div>
-              <div class="material-row">
-                <span>Platform:</span>
-                <span id="val-platform">Raspberry Pi 4 Model B</span>
-              </div>
-              <div class="material-row">
-                <span>Continuity Proof:</span>
-                <span class="status-pill status-pill-green">RIT Verified</span>
-              </div>
-            </div>
-          </div>
-
         </div>
       </section>
 
 
-      <!-- COLUMN 3: FIELD ACTION -->
+      <!-- COLUMN 3: FIELD ACTION & ACTUATOR -->
       <section class="dash-col col-action">
         <div class="col-header">
           <span class="col-tag">DOMAIN ACTUATOR</span>
@@ -244,7 +234,7 @@
 
             <div class="actuator-metrics">
               <div class="metric-item">
-                <small>VALVE DIRECTIVE</small>
+                <small>VALVE</small>
                 <strong id="metric-valve-dir">OPEN_VALVE</strong>
               </div>
               <div class="metric-item">
@@ -280,6 +270,67 @@
         </div>
       </section>
 
+
+      <!-- COLUMN 4: DIAGNOSTIC & EVIDENCE RESOLUTION -->
+      <section class="dash-col col-diag">
+        <div class="col-header">
+          <span class="col-tag col-tag-warning">ACTIVE INVESTIGATION</span>
+          <h2>Evidence Seeking</h2>
+        </div>
+
+        <div class="diag-blocks">
+          
+          <div class="diag-card" id="card-diag-box">
+            <div class="card-eyebrow">DISCRIMINATING EVIDENCE ENGINE</div>
+            <div class="diag-status-header">
+              <span>Status:</span>
+              <strong id="val-diag-status" class="status-pill status-pill-green">IDLE</strong>
+            </div>
+
+            <p class="diag-instruction" id="diag-instruction">
+              System is operating under sufficient evidence. No active investigation needed.
+            </p>
+
+            <button id="btn-trigger-diag" class="btn-action-diag hidden" onclick="triggerActiveDiagnostic()">
+              ⚡ Run Diagnostic Self-Test & Probe C
+            </button>
+          </div>
+
+          <!-- Reference Probe C Details -->
+          <div class="diag-card">
+            <div class="card-eyebrow">REFERENCE PROBE C (CALIBRATED)</div>
+            <div class="ref-probe-row">
+              <span class="ref-label">Ground-Truth Reading:</span>
+              <strong class="mono" id="val-ref-c">STANDBY (OFF)</strong>
+            </div>
+          </div>
+
+          <!-- Probe Self-Test Diagnostics -->
+          <div class="diag-card">
+            <div class="card-eyebrow">HARDWARE IMPEDANCE & SELF-TEST</div>
+            <div class="self-test-list">
+              <div class="self-test-item">
+                <span>Probe A Impedance:</span>
+                <strong id="health-probe-a" class="status-pill status-pill-green">HEALTHY</strong>
+              </div>
+              <div class="self-test-item">
+                <span>Probe B Impedance:</span>
+                <strong id="health-probe-b" class="status-pill status-pill-green">HEALTHY</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Domain Recommendation -->
+          <div class="diag-card">
+            <div class="card-eyebrow">DOMAIN MAINTENANCE DIRECTIVE</div>
+            <div id="val-maintenance-rec" class="maintenance-rec-text">
+              No maintenance required. All sensors within nominal tolerances.
+            </div>
+          </div>
+
+        </div>
+      </section>
+
     </main>
 
 
@@ -290,7 +341,7 @@
       <div class="rec-header">
         <div class="rec-title-group">
           <span class="col-tag col-tag-accent">REC · RECOVERABLE EVENT LEDGER</span>
-          <h2>Biography of the ENTE (Genesis to HEAD)</h2>
+          <h2 id="timeline-title">Biography of the ENTE (Tour A: Epistemic Resolution)</h2>
         </div>
         <div class="rec-stats mono">
           <span id="rec-head-count">5 Events</span> · <span id="rec-audit-status" style="color:var(--accent)">Full O(H) Audit Passing</span>

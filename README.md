@@ -112,7 +112,7 @@ ctest --test-dir build --output-on-failure --verbose
 - **Protocolo Experimental (EXP-001)**: [`docs/ENTE-EXPERIMENT-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-EXPERIMENT-001-v0.1.0.md)
 - **Consumo de Domínio 001 (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-001-v0.1.0.md)
 - **Consumo de Domínio 002 (Laboratório Clínico UTI)**: [`docs/ENTE-CASELAB-002-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-002-v0.1.0.md)
-- **Aplicação Concreta 003 (Estação de Campo & Irrigação)**: [`examples/field-station/`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/)
+- **Consumo de Domínio 003 (Estação de Campo & Irrigação)**: [`docs/ENTE-CASELAB-003-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-003-v0.1.0.md) *(Código em [`examples/field-station/`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/))*
 
 ---
 

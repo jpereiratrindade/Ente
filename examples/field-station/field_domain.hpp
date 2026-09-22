@@ -44,16 +44,46 @@ enum class ValveAction : uint8_t {
 }
 
 // ---------------------------------------------------------
-// Field Sensor Telemetry
+// Field Sensor Telemetry & Diagnostics
 // ---------------------------------------------------------
 
+enum class SensorHealth : uint8_t {
+    Healthy,
+    CalibrationDrift,
+    Disconnected
+};
+
+[[nodiscard]] constexpr std::string_view to_string(SensorHealth h) noexcept {
+    switch (h) {
+        case SensorHealth::Healthy: return "HEALTHY";
+        case SensorHealth::CalibrationDrift: return "CALIBRATION_DRIFT";
+        case SensorHealth::Disconnected: return "DISCONNECTED";
+    }
+    return "UNKNOWN_HEALTH";
+}
+
+enum class MaintenanceRecommendation : uint8_t {
+    None,
+    CalibrateProbeA,
+    CalibrateProbeB,
+    ReplaceProbe
+};
+
 struct SensorTelemetry {
-    double soil_moisture_a{21.0}; // percentage (e.g. 21% is dry)
+    double soil_moisture_a{21.0}; // percentage
     double soil_moisture_b{22.0}; // redundant probe
+    std::optional<double> soil_moisture_c{std::nullopt}; // reference probe C (active during diagnostics)
+    
+    SensorHealth health_sensor_a{SensorHealth::Healthy};
+    SensorHealth health_sensor_b{SensorHealth::Healthy};
+    
     bool rain_detected{false};
     double water_tank_level{73.0}; // percentage
     bool flow_sensor_ok{true};
     std::string hardware_id{"RP-A921"};
+    
+    bool diagnostic_active{false};
+    MaintenanceRecommendation recommendation{MaintenanceRecommendation::None};
 };
 
 // ---------------------------------------------------------
@@ -73,6 +103,20 @@ public:
 
     void set_telemetry(SensorTelemetry t) noexcept {
         telemetry_ = std::move(t);
+    }
+
+    void run_diagnostic_self_test(bool probe_b_has_drift, double reference_c_reading) noexcept {
+        telemetry_.diagnostic_active = true;
+        telemetry_.soil_moisture_c = reference_c_reading;
+        if (probe_b_has_drift) {
+            telemetry_.health_sensor_a = SensorHealth::Healthy;
+            telemetry_.health_sensor_b = SensorHealth::CalibrationDrift;
+            telemetry_.recommendation = MaintenanceRecommendation::CalibrateProbeB;
+        } else {
+            telemetry_.health_sensor_a = SensorHealth::CalibrationDrift;
+            telemetry_.health_sensor_b = SensorHealth::Healthy;
+            telemetry_.recommendation = MaintenanceRecommendation::CalibrateProbeA;
+        }
     }
 
     void apply_safety_directive(ente::assurance::SafetyDirective directive) noexcept {

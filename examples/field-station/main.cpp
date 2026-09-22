@@ -8,43 +8,69 @@
 int main() {
     std::cout << "==========================================================\n";
     std::cout << "  ENTE FIELD STATION (ENTE-VISUAL-001)\n";
-    std::cout << "  Autonomous Field Station under Epistemic Continuity\n";
+    std::cout << "  Active Epistemic Resolution & Ontological Continuity\n";
     std::cout << "==========================================================\n\n";
 
-    auto logs = fieldstation::FieldStationScenarios::run_all();
+    // ---------------------------------------------------------
+    // TOUR A: Epistemic Resolution Cycle
+    // ---------------------------------------------------------
+    std::cout << ">>> RUNNING TOUR A: EPISTEMIC RESOLUTION CYCLE <<<\n";
+    auto tour_a = fieldstation::FieldStationScenarios::run_tour_a_resolution(true);
 
-    for (const auto& l : logs) {
+    for (const auto& l : tour_a) {
+        std::cout << std::format("[ACT {} · {}] Event: {}\n", l.act_id, l.act_name, l.event_type);
+        std::cout << std::format("  Sensors: A = {} | B = {} | Ref C = {}\n", l.soil_a, l.soil_b, l.soil_c);
+        std::cout << std::format("  Diagnostic: {} | RCC = {} -> Directive = {} -> Valve = {}\n",
+            l.diagnostic_status, l.rcc_status, l.assurance_directive, l.valve_action);
+        std::cout << std::format("  Summary: {}\n\n", l.description);
+    }
+
+    // Asserções do Tour A
+    assert(tour_a.size() == 5);
+    assert(tour_a[0].event_type == "GENESIS");
+    assert(tour_a[1].valve_action == "OPEN_VALVE");  // Nominal: irrigando
+    assert(tour_a[2].valve_action == "CLOSE_VALVE"); // Conflito: SafeHold
+    assert(tour_a[3].event_type == "DIAGNOSTIC_OBSERVATION"); // Sonda C + Self-Test
+    assert(tour_a[4].valve_action == "OPEN_VALVE");  // Reinterpretação: Irrigação retomada
+
+    // Validação do branch alternativo de Tour A (Solo Úmido)
+    auto tour_a_wet = fieldstation::FieldStationScenarios::run_tour_a_resolution(false);
+    assert(tour_a_wet[4].valve_action == "CLOSE_VALVE"); // Solo Úmido: Válvula Fechada com Justificativa
+    assert(tour_a_wet[4].interpretation == "IRRIGATION_NOT_NEEDED");
+
+    // ---------------------------------------------------------
+    // TOUR B: Ontological Continuity Cycle
+    // ---------------------------------------------------------
+    std::cout << "\n>>> RUNNING TOUR B: ONTOLOGICAL CONTINUITY CYCLE <<<\n";
+    auto tour_b = fieldstation::FieldStationScenarios::run_tour_b_continuity();
+
+    for (const auto& l : tour_b) {
         std::cout << std::format("[ACT {} · {}] Event: {}\n", l.act_id, l.act_name, l.event_type);
         std::cout << std::format("  Hardware: {} | Time: {} | Hash: {}\n", l.hardware_id, l.logical_time, l.hash);
-        std::cout << std::format("  Sensors: Probe A = {} | Probe B = {}\n", l.soil_a, l.soil_b);
         std::cout << std::format("  ENTE: RCC = {} -> Directive = {} -> Valve = {}\n", 
             l.rcc_status, l.assurance_directive, l.valve_action);
         std::cout << std::format("  Summary: {}\n\n", l.description);
     }
 
-    // Asserções Constitutivas
-    assert(logs.size() == 5);
-    assert(logs[0].event_type == "GENESIS");
-    assert(logs[1].valve_action == "OPEN_VALVE");
-    assert(logs[2].valve_action == "CLOSE_VALVE"); // Contradição -> SafeHold
-    assert(logs[3].hardware_id == "RP-B104");      // Migração RIT
-    assert(logs[4].event_type == "COLD_RECOVERY"); // Cold recovery preserva SafeHold
+    // Asserções do Tour B
+    assert(tour_b.size() == 4);
+    assert(tour_b[0].event_type == "GENESIS");
+    assert(tour_b[1].assurance_directive == "SAFE_HOLD");
+    assert(tour_b[2].hardware_id == "RP-B104"); // Migração RIT
+    assert(tour_b[3].event_type == "COLD_RECOVERY");
+    assert(tour_b[3].assurance_directive == "SAFE_HOLD"); // SafeHold preservado após crash
 
-    // Salvar events.json para a interface web
-    std::string json_data = fieldstation::FieldStationScenarios::to_json(logs);
-
-    // Tenta salvar em web/events.json se o diretório existir
+    // Exportar JSON combinado para a UI web
+    std::string json_data = fieldstation::FieldStationScenarios::to_json(tour_a, tour_b);
     try {
         std::filesystem::create_directories("examples/field-station/web");
         std::ofstream out("examples/field-station/web/events.json");
         if (out.is_open()) {
             out << json_data;
-            std::cout << "[OK] Exported events.json to examples/field-station/web/events.json\n";
+            std::cout << "\n[OK] Exported events.json with Tour A and Tour B to examples/field-station/web/events.json\n";
         }
-    } catch (...) {
-        // Fallback silencioso se executado em outro diretório
-    }
+    } catch (...) {}
 
-    std::cout << "\n[PASS] All 5 Acts of ENTE Field Station verified with strict constitutional fidelity.\n";
+    std::cout << "\n[PASS] All Epistemic Resolution & Continuity tours passed with 100% fidelity.\n";
     return 0;
 }
