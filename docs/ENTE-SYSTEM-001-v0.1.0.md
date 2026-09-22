@@ -30,4 +30,63 @@
 # 0. Declaração de construção
 
 Este documento define o primeiro desenho de implementação de uma realização ENTE em C++26 (**ENTE-0**).
-Materializa de forma mínima e observável os compromissos ontológicos e epistêmicos sem acoplamento a domínios específicos.
+
+O objetivo é construir um sistema pequeno o bastante para ser compreendido integralmente e rigoroso o bastante para testar se os conceitos constitutivos produzem comportamento observável real.
+
+---
+
+# 1. Princípio arquitetural
+
+> **ENTE funciona como um contrato constitutivo aplicado a uma realização concreta.**
+
+O ENTE não se apropria do domínio nem impõe uma classe-base fechada.
+
+---
+
+# 4. Escopo da primeira implementação (ENTE-0)
+
+Implementados no núcleo local:
+- `GENESIS` & `IDENTITY`
+- `MATERIAL_ANCHOR` & `MATERIAL_BINDING` (Navio de Teseu)
+- `EVENT_SCOPED_PRNG` (Replay determinístico endereçado por evento)
+- `OBSERVATION` & `INTERPRETATION`
+- `UNKNOWN` & `CONTRADICTORY` explícitos
+- `RCC` & `EPISTEMIC_ACTIONS`
+- `RUNTIME_ASSURANCE` (Desacoplado da RCC)
+- `RIT` & `REA`
+- `REC` (Ledger local com hash-chain e grafo causal)
+- `AUTHORITY_LINEAGE` (C14)
+- `COLD_RECOVERY` & Persistência em disco
+- `CONSTITUTION_VERIFIER` (Avaliação dinâmica de C1..C14)
+- `ATTESTATION_RATS` (Modelo de atestação independente)
+
+Adiados para marcos futuros:
+- Consenso BFT distribuído em rede
+- Épocas de autoridade entre múltiplos nós independentes
+- Sensores físicos e hardware embarcado real
+- Emendas constitucionais automáticas
+
+---
+
+# 5. Estrutura de namespaces
+
+```cpp
+namespace ente;
+namespace ente::core;
+namespace ente::identity;
+namespace ente::history;
+namespace ente::epistemic;
+namespace ente::judgment;
+namespace ente::rcc;
+namespace ente::assurance;
+namespace ente::attestation;
+namespace ente::constitution;
+namespace ente::realization;
+```
+
+---
+
+> **O primeiro ENTE não precisa saber muito.  
+> Precisa conseguir nascer, distinguir o que sabe do que não sabe, reconsiderar o que acredita e demonstrar historicamente como mudou sem deixar de ser ele mesmo.**
+
+**Sempre pronto. Sempre incompleto.**

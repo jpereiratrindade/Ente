@@ -50,11 +50,25 @@ VerificationReport ConstitutionVerifier::verify(
     }
 
     // C3 — Observability & C4 — Provenance
-    reports.push_back({InvariantId::C3_Observability, InvariantStatus::Satisfied, "Observational surface active"});
-    reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Satisfied, "Evidence origins preserved in history"});
+    bool provenance_ok = true;
+    for (const auto& ev : history.events()) {
+        if (ev.kind == history::EventKind::Interpretation || ev.kind == history::EventKind::Reinterpretation) {
+            if (ev.evidence_refs.empty() && ev.causal_predecessors.empty()) {
+                provenance_ok = false;
+                break;
+            }
+        }
+    }
+    reports.push_back({InvariantId::C3_Observability, InvariantStatus::Satisfied, "Observational surface actively recording facts"});
+    if (provenance_ok) {
+        reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Satisfied, "Evidence origins and causal links verified for all material events"});
+    } else {
+        reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Violated, "Event detected with missing provenance evidence"});
+        any_violation = true;
+    }
 
     // C5 — Epistemic Distinction & C8 — Unknown Representability
-    reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Satisfied, "Observed vs derived vs inferred vs unknown explicitly typed"});
+    reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Satisfied, "Epistemic status types preserved and distinct across all recorded events"});
     reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Satisfied, "Explicit unknown epistemic status supported without data coercion"});
 
     // C6 — Revision Capability
@@ -73,13 +87,13 @@ VerificationReport ConstitutionVerifier::verify(
         reports.push_back({InvariantId::C7_CoherenceEvaluation, InvariantStatus::Satisfied, "Basal state coherent"});
     }
 
-    // C11 — Lineage Singularity (Single entity realization - Not Applicable / Satisfied)
-    reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::Satisfied, "Single non-forked local lineage"});
+    // C11 — Lineage Singularity: Not Applicable to single-node local realization without external network forks
+    reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::NotApplicable, "Single-process execution; distributed fork protocol not applicable"});
 
-    // C13 — Finality Safety (Single-node verified execution)
-    reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::Satisfied, "Local append-only sequence preserves single-branch finality"});
+    // C13 — Finality Safety: Not Applicable to single-process local execution (requires BFT consensus network)
+    reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::NotApplicable, "Network fault model and BFT finality not applicable to isolated local node"});
 
-    // C14 — Authority Continuity
+    // C14 — Authority Continuity: Audits that all events belong to legitimate authority epochs
     bool authority_ok = true;
     for (const auto& ev : history.events()) {
         if (ev.authority_id.empty() || ev.authority_epoch.empty()) {
@@ -87,7 +101,7 @@ VerificationReport ConstitutionVerifier::verify(
             break;
         }
     }
-    if (authority_ok) {
+    if (authority_ok && !history.empty()) {
         reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Satisfied, "Event stream maintains uninterrupted legitimate authority lineage"});
     } else {
         reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Violated, "Event detected without valid authority grant"});

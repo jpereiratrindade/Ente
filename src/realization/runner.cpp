@@ -21,14 +21,23 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
         return std::unexpected(gen_res.error());
     }
 
-    // Record Genesis into REC
+    // Initialize root authority epoch bound to Genesis (C14)
+    authority::AuthorityId root_auth(std::format("auth-root-{}", id.view()));
+    auto ep_res = authority_.initialize_root_epoch(root_auth, 0);
+    if (!ep_res.has_value()) {
+        return std::unexpected(ep_res.error());
+    }
+
+    // Record Genesis into REC with active authority epoch
     auto gen_event = rec_.create_event(
         history::EventKind::Genesis,
         id,
         0,
         {},
         {},
-        std::format("GENESIS:{}:{}", id.view(), gen_res->genesis_digest.value)
+        std::format("GENESIS:{}:{}", id.view(), gen_res->genesis_digest.value),
+        std::string(root_auth.view()),
+        std::string(ep_res->epoch_id.view())
     );
 
     auto append_res = rec_.append(std::move(gen_event));
@@ -39,8 +48,82 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
     return *gen_res;
 }
 
+std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_history(history::RecoverableHistory history) {
+    if (history.empty()) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+
+    if (!history.verify_integrity()) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
+
+    const auto& gen_ev = history.events()[0];
+    if (gen_ev.kind != history::EventKind::Genesis) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+
+    EnteRealization instance;
+    instance.rec_ = std::move(history);
+
+    // Reconstruct Genesis record into GenesisService to seal identity and prevent 2nd genesis
+    core::Digest const_digest = core::HashUtil::sha256("CONSTITUTION-v0.6.0");
+    core::Digest basal_digest = core::HashUtil::sha256("BASAL-STATE-v0.1.0");
+    auto gen_res = instance.genesis_service_.create_genesis({
+        .identity = gen_ev.identity,
+        .constitution_digest = const_digest,
+        .basal_state_digest = basal_digest
+    });
+    if (!gen_res.has_value()) {
+        return std::unexpected(gen_res.error());
+    }
+
+    // Reconstruct Authority Lineage from events
+    authority::AuthorityId auth_id(gen_ev.authority_id);
+    auto auth_res = instance.authority_.initialize_root_epoch(auth_id, gen_ev.logical_time);
+    if (!auth_res.has_value()) {
+        return std::unexpected(auth_res.error());
+    }
+
+    // Reconstruct latest interpretation from event history if present
+    for (auto it = instance.rec_.events().rbegin(); it != instance.rec_.events().rend(); ++it) {
+        if (it->kind == history::EventKind::Interpretation ||
+            it->kind == history::EventKind::Reinterpretation ||
+            it->kind == history::EventKind::CoherenceRestored) {
+            
+            instance.current_interpretation_ = epistemic::Interpretation{
+                .id = core::InterpretationId("I_RECOVERED"),
+                .subject = "recovered_context",
+                .proposition = it->payload_content,
+                .supporting_evidence = it->evidence_refs,
+                .challenging_evidence = {},
+                .supersedes = std::nullopt,
+                .status = epistemic::InterpretationStatus::Current,
+                .created_at = it->logical_time
+            };
+            break;
+        }
+    }
+
+    return instance;
+}
+
+std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_file(std::string_view filepath) {
+    auto rec_res = history::RecoverableHistory::load_from_file(filepath);
+    if (!rec_res.has_value()) {
+        return std::unexpected(rec_res.error());
+    }
+    return recover_from_history(std::move(*rec_res));
+}
+
 void EnteRealization::adopt_interpretation(epistemic::Interpretation new_interp) {
     current_interpretation_ = std::move(new_interp);
+
+    // ACTION_SUPPORT_TRACE: If the new interpretation does not support MoveForward (e.g. obstruction/wait), suspend action immediately!
+    if (current_interpretation_->subject != "path_clear" ||
+        current_interpretation_->status == epistemic::InterpretationStatus::Weakened ||
+        current_interpretation_->status == epistemic::InterpretationStatus::Contradicted) {
+        domain_.suspend_action();
+    }
 }
 
 std::expected<void, core::EnteError> EnteRealization::step(
@@ -53,6 +136,8 @@ std::expected<void, core::EnteError> EnteRealization::step(
     }
 
     const auto& id = identity().id;
+    std::string current_auth_id = authority_.empty() ? "auth-root" : std::string(authority_.active_epoch().authorized_authority.view());
+    std::string current_epoch_id = authority_.empty() ? "epoch-0" : std::string(authority_.active_epoch().epoch_id.view());
 
     // 1. Record observations into REC
     std::vector<core::EvidenceId> obs_evidence_ids;
@@ -64,7 +149,9 @@ std::expected<void, core::EnteError> EnteRealization::step(
             time,
             {},
             {obs.id},
-            std::format("OBSERVE:{}:{}:{}", obs.subject, obs.value, to_string(obs.status))
+            std::format("OBSERVE:{}:{}:{}", obs.subject, obs.value, to_string(obs.status)),
+            current_auth_id,
+            current_epoch_id
         );
         auto app_res = rec_.append(std::move(obs_event));
         if (!app_res.has_value()) return app_res;
@@ -90,7 +177,9 @@ std::expected<void, core::EnteError> EnteRealization::step(
             time,
             {},
             obs_evidence_ids,
-            std::format("INTERPRET:I0000:path_clear:{}", current_interpretation_->proposition)
+            std::format("INTERPRET:I0000:path_clear:{}", current_interpretation_->proposition),
+            current_auth_id,
+            current_epoch_id
         );
         auto app_res = rec_.append(std::move(interp_event));
         if (!app_res.has_value()) return app_res;
@@ -110,7 +199,9 @@ std::expected<void, core::EnteError> EnteRealization::step(
             time,
             {},
             obs_evidence_ids,
-            std::format("RCC:PERTURBATION:{}:{}", judgment::to_string(reassess.compatibility), reassess.reason)
+            std::format("RCC:PERTURBATION:{}:{}", judgment::to_string(reassess.compatibility), reassess.reason),
+            current_auth_id,
+            current_epoch_id
         );
         auto app_res = rec_.append(std::move(rcc_event));
         if (!app_res.has_value()) return app_res;
@@ -126,7 +217,9 @@ std::expected<void, core::EnteError> EnteRealization::step(
                 time,
                 {rec_.head().id},
                 obs_evidence_ids,
-                reassess.epistemic_action == rcc::EpistemicAction::SuspendAction ? "ACTION:SUSPEND_ACTION" : "ACTION:SEEK_EVIDENCE"
+                reassess.epistemic_action == rcc::EpistemicAction::SuspendAction ? "ACTION:SUSPEND_ACTION" : "ACTION:SEEK_EVIDENCE",
+                current_auth_id,
+                current_epoch_id
             );
             auto app_ep = rec_.append(std::move(ep_event));
             if (!app_ep.has_value()) return app_ep;

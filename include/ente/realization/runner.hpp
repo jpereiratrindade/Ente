@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ente/identity/genesis_service.hpp"
+#include "ente/authority/authority.hpp"
 #include "ente/history/rec.hpp"
 #include "ente/epistemic/interpretation.hpp"
 #include "ente/judgment/fixture.hpp"
@@ -34,6 +35,10 @@ public:
 
     [[nodiscard]] std::expected<identity::GenesisRecord, core::EnteError> genesis(const core::IdentityId& id);
 
+    // Cold Recovery from historical REC (restores identity, authority, interpretation, and blocks 2nd Genesis)
+    [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_history(history::RecoverableHistory history);
+    [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_file(std::string_view filepath);
+
     [[nodiscard]] std::expected<void, core::EnteError> step(
         core::LogicalTime time,
         const std::vector<epistemic::Observation>& observations,
@@ -47,11 +52,13 @@ public:
     [[nodiscard]] history::RecoverableHistory& history_mut() noexcept { return rec_; } // for tamper test
     [[nodiscard]] const std::optional<epistemic::Interpretation>& current_interpretation() const noexcept { return current_interpretation_; }
     [[nodiscard]] const SyntheticDomain& domain() const noexcept { return domain_; }
+    [[nodiscard]] const authority::AuthorityLineage& authority_lineage() const noexcept { return authority_; }
 
     void adopt_interpretation(epistemic::Interpretation new_interp);
 
 private:
     identity::GenesisService genesis_service_;
+    authority::AuthorityLineage authority_;
     history::RecoverableHistory rec_;
     std::optional<epistemic::Interpretation> current_interpretation_;
     rcc::ContextReassessment rcc_;
