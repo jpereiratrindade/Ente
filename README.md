@@ -52,7 +52,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação Completa (12 Testes)
+### Executar a Suíte de Verificação Completa (15 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
 ```
@@ -67,9 +67,24 @@ ctest --test-dir build --output-on-failure --verbose
 ./build/test_experiment_001
 ```
 
-### Executar o Laboratório de Domínio: Caso KitKat (ENTE-CASELAB-001)
+### Executar a Bateria de Chaos & Injeção de Falhas (CHAOS-001..004)
+```bash
+./build/test_chaos_invariants
+```
+
+### Executar o Benchmark Estocástico de Monte Carlo (Pareto Dominance)
+```bash
+./build/test_monte_carlo_benchmark
+```
+
+### Executar o Laboratório de Domínio 001: Veículo Autônomo / KitKat (ENTE-CASELAB-001)
 ```bash
 ./build/case_lab
+```
+
+### Executar o Laboratório de Domínio 002: Bomba de Infusão Clínica (ENTE-CASELAB-002)
+```bash
+./build/clinical_lab
 ```
 
 ---
@@ -81,5 +96,7 @@ ctest --test-dir build --output-on-failure --verbose
 - **RCC**: [`docs/ENTE-RCC-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-RCC-001-v0.1.0.md)
 - **Arquitetura de Sistema**: [`docs/ENTE-SYSTEM-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-SYSTEM-001-v0.1.0.md)
 - **Protocolo Experimental**: [`docs/ENTE-EXPERIMENT-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-EXPERIMENT-001-v0.1.0.md)
-- **Consumo de Domínio (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-001-v0.1.0.md)
+- **Consumo de Domínio 001 (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-001-v0.1.0.md)
+- **Consumo de Domínio 002 (Laboratório Clínico UTI)**: [`docs/ENTE-CASELAB-002-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-002-v0.1.0.md)
+
 

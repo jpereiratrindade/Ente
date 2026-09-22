@@ -81,9 +81,26 @@ add_executable(test_vertical_lifecycle tests/test_vertical_lifecycle.cpp)
 target_link_libraries(test_vertical_lifecycle PRIVATE ente_core)
 add_test(NAME test_vertical_lifecycle COMMAND test_vertical_lifecycle)
 
-# Case Lab
+# Chaos & Adversarial Invariant Attacks
+add_executable(test_chaos_invariants tests/test_chaos_invariants.cpp)
+target_link_libraries(test_chaos_invariants PRIVATE ente_core)
+add_test(NAME test_chaos_invariants COMMAND test_chaos_invariants)
+
+# Monte Carlo Stochastic Fuzzing & Statistical Pareto Benchmark (10,000 runs)
+add_executable(test_monte_carlo_benchmark tests/test_monte_carlo_benchmark.cpp)
+target_link_libraries(test_monte_carlo_benchmark PRIVATE ente_core)
+add_test(NAME test_monte_carlo_benchmark COMMAND test_monte_carlo_benchmark)
+
+# Case Lab 001: Autonomous Vehicle (KitKat Analog)
 add_executable(case_lab examples/case-lab/main.cpp)
 target_link_libraries(case_lab PRIVATE ente_core)
 target_include_directories(case_lab PRIVATE examples/case-lab)
 add_test(NAME test_case_lab COMMAND case_lab)
+
+# Case Lab 002: Clinical Infusion Pump under Telemetry Anomaly
+add_executable(clinical_lab examples/clinical-lab/main.cpp)
+target_link_libraries(clinical_lab PRIVATE ente_core)
+target_include_directories(clinical_lab PRIVATE examples/clinical-lab)
+add_test(NAME test_clinical_lab COMMAND clinical_lab)
+
 
