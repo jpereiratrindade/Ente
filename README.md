@@ -106,4 +106,11 @@ ctest --test-dir build --output-on-failure --verbose
 - **Consumo de Domínio 001 (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-001-v0.1.0.md)
 - **Consumo de Domínio 002 (Laboratório Clínico UTI)**: [`docs/ENTE-CASELAB-002-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-002-v0.1.0.md)
 
+---
+
+## 5. Licença
+
+Este projeto é software livre licenciado sob os termos da **GNU General Public License v3.0 (GPLv3)**. Veja o arquivo [`LICENSE`](file:///home/jpereiratrindade/dev/cpp/Ente/LICENSE) para os termos completos.
+
+
 
