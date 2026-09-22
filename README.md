@@ -52,7 +52,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação Completa (11 Testes)
+### Executar a Suíte de Verificação Completa (12 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
 ```
@@ -62,7 +62,24 @@ ctest --test-dir build --output-on-failure --verbose
 ./build/test_vertical_lifecycle
 ```
 
-### Executar o Experimento Comparativo com Baselines
+### Executar o Experimento de Falsificação e Baselines (EXP-001)
 ```bash
 ./build/test_experiment_001
 ```
+
+### Executar o Laboratório de Domínio: Caso KitKat (ENTE-CASELAB-001)
+```bash
+./build/case_lab
+```
+
+---
+
+## 4. Documentação e Casos de Uso
+
+- **Normas Constitutivas**: [`docs/ENTE-CONSTITUTION-001-v0.6.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CONSTITUTION-001-v0.6.0.md)
+- **Ontologia**: [`docs/ENTE-ONTOLOGY-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-ONTOLOGY-001-v0.1.0.md)
+- **RCC**: [`docs/ENTE-RCC-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-RCC-001-v0.1.0.md)
+- **Arquitetura de Sistema**: [`docs/ENTE-SYSTEM-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-SYSTEM-001-v0.1.0.md)
+- **Protocolo Experimental**: [`docs/ENTE-EXPERIMENT-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-EXPERIMENT-001-v0.1.0.md)
+- **Consumo de Domínio (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-001-v0.1.0.md)
+

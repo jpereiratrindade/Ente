@@ -80,3 +80,10 @@ add_test(NAME test_experiment_001 COMMAND test_experiment_001)
 add_executable(test_vertical_lifecycle tests/test_vertical_lifecycle.cpp)
 target_link_libraries(test_vertical_lifecycle PRIVATE ente_core)
 add_test(NAME test_vertical_lifecycle COMMAND test_vertical_lifecycle)
+
+# Case Lab
+add_executable(case_lab examples/case-lab/main.cpp)
+target_link_libraries(case_lab PRIVATE ente_core)
+target_include_directories(case_lab PRIVATE examples/case-lab)
+add_test(NAME test_case_lab COMMAND case_lab)
+
