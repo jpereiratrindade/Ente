@@ -1,0 +1,1508 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>ENTE — Continuity Through Transformation</title>
+
+  <meta
+    name="description"
+    content="ENTE is an experimental computational architecture for preserving identity, history, authority and epistemic coherence through change."
+  />
+
+  <style>
+    :root {
+      --bg: #07090c;
+      --bg-soft: #0d1117;
+      --panel: rgba(255,255,255,.035);
+      --panel-strong: rgba(255,255,255,.055);
+
+      --text: #f3f5f7;
+      --muted: #969da8;
+      --line: rgba(255,255,255,.12);
+      --line-soft: rgba(255,255,255,.07);
+
+      --accent: #b6f2d0;
+      --accent-soft: rgba(182,242,208,.12);
+      --warning: #ffd88a;
+
+      --max: 1180px;
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 80% 10%, rgba(87, 145, 120, .12), transparent 30rem),
+        radial-gradient(circle at 15% 35%, rgba(70, 87, 120, .08), transparent 28rem),
+        var(--bg);
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    code,
+    .mono {
+      font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+    }
+
+    .shell {
+      width: min(calc(100% - 40px), var(--max));
+      margin-inline: auto;
+    }
+
+    /* ---------------------------------------------------------
+       Navigation
+       --------------------------------------------------------- */
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(18px);
+      background: rgba(7,9,12,.72);
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .nav-inner {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      font-weight: 800;
+      letter-spacing: .18em;
+      font-size: .86rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: .88rem;
+      color: var(--muted);
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    /* ---------------------------------------------------------
+       Shared
+       --------------------------------------------------------- */
+
+    section {
+      padding: 110px 0;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .eyebrow {
+      font-size: .76rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 18px;
+      font-weight: 700;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h2 {
+      max-width: 900px;
+      font-size: clamp(2rem, 5vw, 4.6rem);
+      line-height: 1.03;
+      letter-spacing: -.045em;
+      margin-bottom: 28px;
+    }
+
+    .lead {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: clamp(1.05rem, 2vw, 1.3rem);
+    }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition:
+        transform .22s ease,
+        background .22s ease,
+        border-color .22s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      background: var(--panel-strong);
+      border-color: rgba(182,242,208,.24);
+    }
+
+    .card h3 {
+      margin-bottom: 10px;
+      font-size: 1.05rem;
+    }
+
+    .card p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: .96rem;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.025);
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .tag::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 15px rgba(182,242,208,.6);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: .9rem;
+      transition: .2s ease;
+    }
+
+    .button.primary {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+      font-weight: 700;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      border-color: rgba(182,242,208,.5);
+    }
+
+    /* ---------------------------------------------------------
+       Hero
+       --------------------------------------------------------- */
+
+    .hero {
+      min-height: calc(100vh - 72px);
+      display: flex;
+      align-items: center;
+      padding: 90px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(310px, .8fr);
+      gap: 80px;
+      align-items: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(4rem, 10vw, 8rem);
+      line-height: .83;
+      letter-spacing: -.07em;
+      margin-bottom: 38px;
+    }
+
+    .hero h1 span {
+      display: block;
+    }
+
+    .hero h1 .sub {
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .hero-copy {
+      max-width: 720px;
+      color: var(--muted);
+      font-size: clamp(1.1rem, 2vw, 1.4rem);
+    }
+
+    .hero-manifesto {
+      margin-top: 34px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px 18px;
+      color: #ccd0d5;
+      font-size: .96rem;
+    }
+
+    .hero-manifesto span + span::before {
+      content: "·";
+      margin-right: 18px;
+      color: #555d68;
+    }
+
+    /* ---------------------------------------------------------
+       Lineage visual
+       --------------------------------------------------------- */
+
+    .lineage {
+      position: relative;
+      padding: 30px 20px 30px 56px;
+      min-height: 500px;
+    }
+
+    .lineage::before {
+      content: "";
+      position: absolute;
+      left: 31px;
+      top: 32px;
+      bottom: 32px;
+      width: 1px;
+      background:
+        linear-gradient(
+          to bottom,
+          transparent,
+          rgba(182,242,208,.9) 8%,
+          rgba(182,242,208,.28) 85%,
+          transparent
+        );
+    }
+
+    .node {
+      position: relative;
+      padding: 16px 0 22px;
+    }
+
+    .node::before {
+      content: "";
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      left: -29px;
+      top: 23px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(182,242,208,.55);
+    }
+
+    .node small {
+      display: block;
+      color: var(--muted);
+      font-size: .72rem;
+      letter-spacing: .15em;
+      margin-bottom: 4px;
+    }
+
+    .node strong {
+      font-size: .92rem;
+      letter-spacing: .04em;
+    }
+
+    .node.dim::before {
+      background: #5f6873;
+      box-shadow: none;
+    }
+
+    /* ---------------------------------------------------------
+       Core question
+       --------------------------------------------------------- */
+
+    .question {
+      text-align: center;
+    }
+
+    .question h2 {
+      margin-inline: auto;
+      max-width: 980px;
+    }
+
+    .questions {
+      max-width: 850px;
+      margin: 70px auto 0;
+      display: grid;
+      gap: 0;
+      text-align: left;
+      border-top: 1px solid var(--line);
+    }
+
+    .question-row {
+      padding: 26px 0;
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      gap: 20px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+
+    .question-row .number {
+      color: var(--accent);
+      font-family: monospace;
+      font-size: .8rem;
+    }
+
+    /* ---------------------------------------------------------
+       Life
+       --------------------------------------------------------- */
+
+    .life {
+      margin-top: 60px;
+      position: relative;
+    }
+
+    .life-item {
+      display: grid;
+      grid-template-columns: 70px minmax(170px, .3fr) 1fr;
+      gap: 30px;
+      padding: 26px 0;
+      border-top: 1px solid var(--line);
+      align-items: start;
+    }
+
+    .life-number {
+      color: var(--accent);
+      font-family: monospace;
+      font-size: .82rem;
+    }
+
+    .life-name {
+      font-weight: 750;
+      letter-spacing: .03em;
+    }
+
+    .life-description {
+      color: var(--muted);
+    }
+
+    .statement {
+      margin-top: 72px;
+      padding-top: 50px;
+      border-top: 1px solid var(--line);
+      font-size: clamp(1.7rem, 4vw, 3.6rem);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+      max-width: 950px;
+    }
+
+    .statement .muted {
+      color: var(--muted);
+    }
+
+    /* ---------------------------------------------------------
+       KitKat
+       --------------------------------------------------------- */
+
+    .kitkat {
+      background:
+        radial-gradient(circle at 10% 70%, rgba(182,242,208,.08), transparent 28rem);
+    }
+
+    .kitkat h2 {
+      max-width: 1050px;
+    }
+
+    .compare {
+      margin-top: 60px;
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .compare-arrow {
+      align-self: center;
+      text-align: center;
+      color: var(--muted);
+      font-size: 1.3rem;
+    }
+
+    .trace {
+      margin-top: 22px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      font-family: monospace;
+      font-size: .86rem;
+    }
+
+    .trace .good {
+      color: var(--accent);
+    }
+
+    .trace .warn {
+      color: var(--warning);
+    }
+
+    .kitkat-quote {
+      margin: 75px 0 0;
+      max-width: 900px;
+      font-size: clamp(1.5rem, 3.5vw, 3rem);
+      line-height: 1.15;
+      letter-spacing: -.025em;
+    }
+
+    .kitkat-quote span {
+      color: var(--accent);
+    }
+
+    /* ---------------------------------------------------------
+       Architecture
+       --------------------------------------------------------- */
+
+    .architecture {
+      margin-top: 60px;
+      display: grid;
+      gap: 8px;
+      max-width: 900px;
+    }
+
+    .layer {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 24px;
+      padding: 20px 24px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 13px;
+    }
+
+    .layer strong {
+      font-size: .85rem;
+      letter-spacing: .08em;
+    }
+
+    .layer span {
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    /* ---------------------------------------------------------
+       Evidence
+       --------------------------------------------------------- */
+
+    .evidence-number {
+      font-size: 2.6rem;
+      letter-spacing: -.04em;
+      margin-bottom: 8px;
+      font-weight: 650;
+    }
+
+    .doc-list {
+      margin-top: 50px;
+      border-top: 1px solid var(--line);
+    }
+
+    .doc-link {
+      padding: 22px 0;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 25px;
+      color: var(--muted);
+    }
+
+    .doc-link:hover {
+      color: var(--text);
+    }
+
+    .doc-link span:last-child {
+      color: #68717b;
+    }
+
+    /* ---------------------------------------------------------
+       Manifesto
+       --------------------------------------------------------- */
+
+    .manifesto {
+      padding: 150px 0;
+    }
+
+    .manifesto-copy {
+      max-width: 920px;
+      font-size: clamp(2rem, 5vw, 4.8rem);
+      line-height: 1.04;
+      letter-spacing: -.045em;
+    }
+
+    .manifesto-copy .muted {
+      color: #646b75;
+    }
+
+    .motto {
+      margin-top: 110px;
+      color: var(--accent);
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .25em;
+    }
+
+    footer {
+      padding: 36px 0 60px;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    /* ---------------------------------------------------------
+       Reveal
+       --------------------------------------------------------- */
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(14px);
+      transition:
+        opacity .7s ease,
+        transform .7s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ---------------------------------------------------------
+       Responsive
+       --------------------------------------------------------- */
+
+    @media (max-width: 900px) {
+      .hero {
+        min-height: auto;
+      }
+
+      .hero-grid,
+      .grid-3,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .lineage {
+        min-height: auto;
+        margin-top: 20px;
+      }
+
+      .compare {
+        grid-template-columns: 1fr;
+      }
+
+      .compare-arrow {
+        transform: rotate(90deg);
+        padding: 6px;
+      }
+
+      .life-item {
+        grid-template-columns: 50px 1fr;
+      }
+
+      .life-description {
+        grid-column: 2;
+      }
+
+      .layer {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .nav-links a:not(.keep-mobile) {
+        display: none;
+      }
+
+      section {
+        padding: 80px 0;
+      }
+
+      .hero {
+        padding-top: 70px;
+      }
+
+      .hero h1 {
+        font-size: clamp(4rem, 22vw, 7rem);
+      }
+
+      .question-row {
+        grid-template-columns: 34px 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- =======================================================
+       NAVIGATION
+       ======================================================= -->
+
+  <nav>
+    <div class="shell nav-inner">
+      <a href="#top" class="brand">ENTE</a>
+
+      <div class="nav-links">
+        <a href="#idea">Idea</a>
+        <a href="#constitution">Constitution</a>
+        <a href="#life">Lifecycle</a>
+        <a href="#caselab">Case Labs</a>
+        <a href="#evidence">Evidence</a>
+
+        <a class="keep-mobile" href="https://github.com/jpereiratrindade/Ente">Repository ↗</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <main id="top">
+
+    <!-- =====================================================
+         HERO
+         ===================================================== -->
+
+    <section class="hero">
+      <div class="shell hero-grid">
+
+        <div>
+          <div class="tag reveal">
+            ENTE-0 · IMPLEMENTED_CANDIDATE
+          </div>
+
+          <h1 class="reveal">
+            <span>ENTE</span>
+            <span class="sub">continues.</span>
+          </h1>
+
+          <p class="hero-copy reveal">
+            An experimental computational architecture for preserving
+            <strong>identity, history, authority and epistemic coherence</strong>
+            through transformation.
+          </p>
+
+          <div class="hero-manifesto reveal">
+            <span>Born once</span>
+            <span>Changes continuously</span>
+            <span>Can account for how it became what it is</span>
+          </div>
+
+          <div class="button-row reveal">
+            <a class="button primary" href="#idea">
+              Explore ENTE
+            </a>
+
+            <a class="button" href="ENTE-CONSTITUTION-001-v0.6.0.md">
+              Read the Constitution
+            </a>
+          </div>
+        </div>
+
+        <div class="lineage reveal" aria-label="ENTE lifecycle">
+          <div class="node">
+            <small>00</small>
+            <strong>GENESIS</strong>
+          </div>
+
+          <div class="node">
+            <small>01</small>
+            <strong>MATERIAL ANCHOR</strong>
+          </div>
+
+          <div class="node">
+            <small>02</small>
+            <strong>AUTHORITY</strong>
+          </div>
+
+          <div class="node">
+            <small>03</small>
+            <strong>OBSERVATION</strong>
+          </div>
+
+          <div class="node">
+            <small>04</small>
+            <strong>INTERPRETATION</strong>
+          </div>
+
+          <div class="node">
+            <small>05</small>
+            <strong>RCC</strong>
+          </div>
+
+          <div class="node">
+            <small>06</small>
+            <strong>RUNTIME ASSURANCE</strong>
+          </div>
+
+          <div class="node">
+            <small>07</small>
+            <strong>TRANSFORMATION</strong>
+          </div>
+
+          <div class="node">
+            <small>08</small>
+            <strong>RECOVERY</strong>
+          </div>
+
+          <div class="node dim">
+            <small>∞</small>
+            <strong>SAME LINEAGE</strong>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         CENTRAL QUESTION
+         ===================================================== -->
+
+    <section id="idea" class="question">
+      <div class="shell">
+
+        <div class="eyebrow reveal">The question</div>
+
+        <h2 class="reveal">
+          What makes a changing system remain the same system?
+        </h2>
+
+        <p class="lead reveal" style="margin-inline:auto">
+          ENTE investigates continuity not as sameness of code, process,
+          memory or hardware, but as a verifiable relationship between
+          genesis, history, authority, interpretation and transformation.
+        </p>
+
+        <div class="questions">
+
+          <div class="question-row reveal">
+            <div class="number">01</div>
+            <div>
+              If the hardware changes, what exactly persists?
+            </div>
+          </div>
+
+          <div class="question-row reveal">
+            <div class="number">02</div>
+            <div>
+              If the system changes its interpretation of the world,
+              what preserves continuity?
+            </div>
+          </div>
+
+          <div class="question-row reveal">
+            <div class="number">03</div>
+            <div>
+              If the process terminates, what exactly wakes up again?
+            </div>
+          </div>
+
+          <div class="question-row reveal">
+            <div class="number">04</div>
+            <div>
+              If evidence becomes insufficient, how should action change
+              without pretending uncertainty is certainty?
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         CONSTITUTION
+         ===================================================== -->
+
+    <section id="constitution">
+      <div class="shell">
+
+        <div class="eyebrow reveal">What ENTE preserves</div>
+
+        <h2 class="reveal">
+          Continuity is not assumed.
+          It is constituted.
+        </h2>
+
+        <p class="lead reveal">
+          ENTE-0 operationalizes a constitution of explicit invariants.
+          The website summarizes them here; the normative definition
+          remains in the ENTE Constitution.
+        </p>
+
+        <div class="grid grid-3" style="margin-top:60px">
+
+          <div class="card reveal">
+            <h3>IDENTITY</h3>
+            <p>
+              One genesis. One distinguishable identity.
+              No silent replacement by a second beginning.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>CONTINUITY</h3>
+            <p>
+              Legitimate transformations remain verifiably connected
+              to the state and trajectory that preceded them.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>PROVENANCE</h3>
+            <p>
+              Material transformations retain evidence,
+              causal relationships and historical justification.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>AUTHORITY</h3>
+            <p>
+              Constitutive actions belong to a legitimate and
+              auditable lineage of authority epochs.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>EPISTEMIC COHERENCE</h3>
+            <p>
+              Observed, inferred, unknown, uncertain and contradictory
+              are represented as distinct epistemic states.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>RECOVERABILITY</h3>
+            <p>
+              History can reconstruct the trajectory of the ENTE
+              from its genesis rather than inventing a new one.
+            </p>
+          </div>
+
+        </div>
+
+        <div class="button-row reveal">
+          <a class="button" href="ENTE-CONSTITUTION-001-v0.6.0.md">
+            Constitution C1…C14 →
+          </a>
+
+          <a class="button" href="ENTE-ONTOLOGY-001-v0.1.0.md">
+            Operational Ontology →
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         LIFE
+         ===================================================== -->
+
+    <section id="life">
+      <div class="shell">
+
+        <div class="eyebrow reveal">A life, not a deployment</div>
+
+        <h2 class="reveal">
+          One continuous trajectory across change.
+        </h2>
+
+        <p class="lead reveal">
+          ENTE-0's vertical lifecycle experiment connects genesis,
+          observation, epistemic perturbation, action suspension,
+          material migration, process termination and cold recovery.
+        </p>
+
+        <div class="life">
+
+          <div class="life-item reveal">
+            <div class="life-number">01</div>
+            <div class="life-name">GENESIS</div>
+            <div class="life-description">
+              Identity is established once and anchored by a cryptographic
+              genesis record.
+            </div>
+          </div>
+
+          <div class="life-item reveal">
+            <div class="life-number">02</div>
+            <div class="life-name">OBSERVATION</div>
+            <div class="life-description">
+              Evidence enters the recoverable historical record with
+              explicit epistemic status and provenance.
+            </div>
+          </div>
+
+          <div class="life-item reveal">
+            <div class="life-number">03</div>
+            <div class="life-name">INTERPRETATION</div>
+            <div class="life-description">
+              The system maintains an interpretation justified by
+              the evidence available at that moment.
+            </div>
+          </div>
+
+          <div class="life-item reveal">
+            <div class="life-number">04</div>
+            <div class="life-name">PERTURBATION</div>
+            <div class="life-description">
+              New evidence weakens or contradicts the assumptions
+              supporting the current interpretation.
+            </div>
+          </div>
+
+          <div class="life-item reveal">
+            <div class="life-number">05</div>
+            <div class="life-name">SAFE HOLD</div>
+            <div class="life-description">
+              Runtime Assurance translates epistemic uncertainty into
+              operational restraint when continuation is no longer justified.
+            </div>
+          </div>
+
+          <div class="life-item reveal">
+            <div class="life-number">06</div>
+            <div class="life-name">MATERIAL MIGRATION</div>
+            <div class="life-description">
+              The material substrate can change while identity and
+              historical lineage remain continuously related.
+            </div>
+          </div>
+
+          <div class="life-item reveal">
+            <div class="life-number">07</div>
+            <div class="life-name">SHUTDOWN</div>
+            <div class="life-description">
+              The executing process can disappear without creating
+              a new genesis.
+            </div>
+          </div>
+
+          <div class="life-item reveal">
+            <div class="life-number">08</div>
+            <div class="life-name">COLD RECOVERY</div>
+            <div class="life-description">
+              A new process reconstructs the historical and constitutive
+              trajectory from the recoverable record.
+            </div>
+          </div>
+
+        </div>
+
+        <div class="statement reveal">
+          The process restarted.
+          <span class="muted">The hardware changed.</span><br />
+          The trajectory did not begin again.
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         KITKAT
+         ===================================================== -->
+
+    <section id="caselab" class="kitkat">
+      <div class="shell">
+
+        <div class="eyebrow reveal">Case Lab 001 · KitKat analog</div>
+
+        <h2 class="reveal">
+          The system does not need to know it is a KitKat.
+        </h2>
+
+        <p class="lead reveal">
+          The experiment asks a more fundamental question:
+          what should happen when the evidence no longer supports
+          acting as though the environment were safely understood?
+        </p>
+
+        <div class="compare">
+
+          <div class="card reveal">
+            <h3>Conventional baseline</h3>
+
+            <p>
+              The catalogued obstacle classifier still sees no known
+              obstacle blocking the frontal path.
+            </p>
+
+            <div class="trace">
+              <div>front_path = CLEAR</div>
+              <div class="warn">near_wheel_motion = UNKNOWN</div>
+              <div>known_obstacle = FALSE</div>
+              <div>↓</div>
+              <div class="warn">DEPART</div>
+            </div>
+          </div>
+
+          <div class="compare-arrow reveal">→</div>
+
+          <div class="card reveal">
+            <h3>ENTE-mediated agent</h3>
+
+            <p>
+              The unknown near-wheel evidence weakens the interpretation
+              under which departure was previously justified.
+            </p>
+
+            <div class="trace">
+              <div>front_path = CLEAR</div>
+              <div class="warn">near_wheel_motion = UNKNOWN</div>
+              <div>RCC = WEAKENED</div>
+              <div>↓</div>
+              <div class="good">RUNTIME_ASSURANCE = SAFE_HOLD</div>
+            </div>
+          </div>
+
+        </div>
+
+        <p class="kitkat-quote reveal">
+          ENTE does not need to identify the cat.
+          <span>
+            It needs to recognize that it no longer knows enough
+            to act as if nothing changed.
+          </span>
+        </p>
+
+        <div class="button-row reveal">
+          <a class="button" href="ENTE-CASELAB-001-v0.1.0.md">
+            Explore Case Lab 001 →
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         SECOND DOMAIN
+         ===================================================== -->
+
+    <section>
+      <div class="shell">
+
+        <div class="eyebrow reveal">Case Lab 002 · Clinical infusion</div>
+
+        <h2 class="reveal">
+          Same constitutive machinery.
+          Different domain.
+        </h2>
+
+        <p class="lead reveal">
+          A second experimental consumer applies the ENTE lifecycle
+          to an autonomous infusion context in which telemetry can
+          become insufficient or contradictory.
+        </p>
+
+        <div class="grid grid-2" style="margin-top:60px">
+
+          <div class="card reveal">
+            <h3>DOMAIN EVIDENCE</h3>
+            <p>
+              Clinical telemetry is represented as evidence rather than
+              silently collapsed into a single confidence value.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>EPISTEMIC GATING</h3>
+            <p>
+              Changes in evidential support can gate domain action through
+              the same RCC and Runtime Assurance mechanisms.
+            </p>
+          </div>
+
+        </div>
+
+        <div class="button-row reveal">
+          <a class="button" href="ENTE-CASELAB-002-v0.1.0.md">
+            Explore Case Lab 002 →
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         ARCHITECTURE
+         ===================================================== -->
+
+    <section id="architecture">
+      <div class="shell">
+
+        <div class="eyebrow reveal">Architecture</div>
+
+        <h2 class="reveal">
+          Constitution before convenience.
+        </h2>
+
+        <p class="lead reveal">
+          ENTE-0 is organized as a small executable architecture in C++26.
+          Domain behavior sits above constitutive mechanisms rather than
+          replacing them.
+        </p>
+
+        <div class="architecture">
+
+          <div class="layer reveal">
+            <strong>DOMAIN</strong>
+            <span>
+              Concrete operational consequences and case-specific action.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>RUNTIME ASSURANCE</strong>
+            <span>
+              Translates epistemic and constitutive state into operational directives.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>RCC</strong>
+            <span>
+              Continuous Context Reassessment of interpretation against new evidence.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>CONSTITUTION VERIFIER</strong>
+            <span>
+              Incremental operational verification and explicit historical audit.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>INTERPRETATION</strong>
+            <span>
+              Explicit propositions and their evidential support.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>REC</strong>
+            <span>
+              Recoverable event history with causal and cryptographic continuity.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>AUTHORITY</strong>
+            <span>
+              Legitimate lineage of constitutive authority epochs.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>MATERIAL BINDING</strong>
+            <span>
+              Relation between identity and replaceable material substrate.
+            </span>
+          </div>
+
+          <div class="layer reveal">
+            <strong>GENESIS</strong>
+            <span>
+              Unique constitutive beginning and identity anchor.
+            </span>
+          </div>
+
+        </div>
+
+        <div class="button-row reveal">
+          <a class="button" href="ENTE-SYSTEM-001-v0.1.0.md">
+            System Architecture →
+          </a>
+
+          <a class="button" href="ENTE-RCC-001-v0.1.0.md">
+            RCC Specification →
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         EXECUTABLE EVIDENCE
+         ===================================================== -->
+
+    <section id="evidence">
+      <div class="shell">
+
+        <div class="eyebrow reveal">Executable evidence</div>
+
+        <h2 class="reveal">
+          The architecture is meant to be challenged.
+        </h2>
+
+        <p class="lead reveal">
+          ENTE-0 is an implemented candidate.
+          Its claims are therefore expressed through explicit experiments,
+          adversarial tests, recoverability checks and comparative case labs.
+        </p>
+
+        <div class="grid grid-3" style="margin-top:60px">
+
+          <div class="card reveal">
+            <div class="evidence-number">16</div>
+            <h3>Executable tests</h3>
+            <p>
+              Current constitutive, lifecycle, adversarial,
+              scalability and case-lab test suite.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <div class="evidence-number">C1…C14</div>
+            <h3>Constitutive invariants</h3>
+            <p>
+              Identity, continuity, provenance, epistemic distinction,
+              temporal integrity, authority and recoverability.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <div class="evidence-number">2</div>
+            <h3>Domain Case Labs</h3>
+            <p>
+              Autonomous vehicle anomaly handling and
+              clinical infusion telemetry divergence.
+            </p>
+          </div>
+
+        </div>
+
+        <div class="grid grid-2" style="margin-top:20px">
+
+          <div class="card reveal">
+            <h3>Vertical Lifecycle</h3>
+            <p>
+              Genesis → observation → perturbation → SafeHold →
+              material migration → shutdown → cold recovery.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>Chaos & Adversarial Tests</h3>
+            <p>
+              Backward time, forged authority, provenance stripping
+              and historical corruption.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>Stochastic Evaluation</h3>
+            <p>
+              Generated transitions evaluated against explicit
+              baseline architectures under a deterministic seed.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3>REC Longevity</h3>
+            <p>
+              Continuous historical growth with incremental verification
+              and explicit full-history auditing.
+            </p>
+          </div>
+
+        </div>
+
+        <div class="doc-list">
+
+          <a class="doc-link reveal" href="ENTE-FORMAL-REPORT-v0.1.0.md">
+            <span>Formal Report</span>
+            <span>→</span>
+          </a>
+
+          <a class="doc-link reveal" href="ENTE-EXPERIMENT-001-v0.1.0.md">
+            <span>Experimental Protocol</span>
+            <span>→</span>
+          </a>
+
+          <a class="doc-link reveal" href="ENTE-CONSTITUTION-001-v0.6.0.md">
+            <span>Constitution</span>
+            <span>→</span>
+          </a>
+
+          <a class="doc-link reveal" href="ENTE-ONTOLOGY-001-v0.1.0.md">
+            <span>Ontology</span>
+            <span>→</span>
+          </a>
+
+          <a class="doc-link reveal" href="ENTE-RCC-001-v0.1.0.md">
+            <span>Continuous Context Reassessment</span>
+            <span>→</span>
+          </a>
+
+          <a class="doc-link reveal" href="ENTE-SYSTEM-001-v0.1.0.md">
+            <span>C++26 System Architecture</span>
+            <span>→</span>
+          </a>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =====================================================
+         MANIFESTO
+         ===================================================== -->
+
+    <section class="manifesto">
+      <div class="shell">
+
+        <div class="eyebrow reveal">ENTE</div>
+
+        <div class="manifesto-copy reveal">
+          ENTE is not a model.<br />
+          <span class="muted">It is not a blockchain.</span><br />
+          It is not an autonomous agent.<br /><br />
+
+          <span class="muted">
+            It is an experiment about what must remain true
+          </span>
+          for a changing computational entity to remain
+          continuously itself.
+        </div>
+
+        <div class="motto reveal">
+          Always ready. Always incomplete.
+        </div>
+
+        <div class="button-row reveal">
+          <a class="button primary" href="ENTE-CONSTITUTION-001-v0.6.0.md">
+            Read the Constitution
+          </a>
+
+          <a class="button" href="ENTE-EXPERIMENT-001-v0.1.0.md">
+            Explore the Experiments
+          </a>
+
+          <a class="button" href="https://github.com/jpereiratrindade/Ente">
+            Browse the Repository
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- =======================================================
+       FOOTER
+       ======================================================= -->
+
+  <footer>
+    <div class="shell footer-inner">
+      <div>
+        ENTE-0 · Experimental computational architecture
+      </div>
+
+      <div class="mono">
+        IMPLEMENTED_CANDIDATE · C++26
+      </div>
+    </div>
+  </footer>
+
+
+  <!-- =======================================================
+       MINIMAL JS: reveal on scroll
+       ======================================================= -->
+
+  <script>
+    const observer = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      {
+        threshold: 0.08,
+        rootMargin: "0px 0px -40px 0px"
+      }
+    );
+
+    document.querySelectorAll(".reveal").forEach(element => {
+      observer.observe(element);
+    });
+  </script>
+
+</body>
+</html>

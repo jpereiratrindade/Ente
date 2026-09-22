@@ -96,11 +96,13 @@ ctest --test-dir build --output-on-failure --verbose
 
 ## 4. Documentação e Casos de Uso
 
-- **Normas Constitutivas**: [`docs/ENTE-CONSTITUTION-001-v0.6.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CONSTITUTION-001-v0.6.0.md)
-- **Ontologia**: [`docs/ENTE-ONTOLOGY-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-ONTOLOGY-001-v0.1.0.md)
-- **RCC**: [`docs/ENTE-RCC-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-RCC-001-v0.1.0.md)
-- **Arquitetura de Sistema**: [`docs/ENTE-SYSTEM-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-SYSTEM-001-v0.1.0.md)
-- **Protocolo Experimental**: [`docs/ENTE-EXPERIMENT-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-EXPERIMENT-001-v0.1.0.md)
+- **Website Interativo & Manifesto**: [`docs/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/index.html) *(Deploy no GitHub Pages)*
+- **Relatório Formal de Demonstração & Falsificação**: [`docs/ENTE-FORMAL-REPORT-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-FORMAL-REPORT-v0.1.0.md)
+- **Normas Constitutivas (C1..C14)**: [`docs/ENTE-CONSTITUTION-001-v0.6.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CONSTITUTION-001-v0.6.0.md)
+- **Ontologia Operacional**: [`docs/ENTE-ONTOLOGY-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-ONTOLOGY-001-v0.1.0.md)
+- **Reconsideração Contínua de Contexto (RCC)**: [`docs/ENTE-RCC-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-RCC-001-v0.1.0.md)
+- **Arquitetura de Sistema em C++26**: [`docs/ENTE-SYSTEM-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-SYSTEM-001-v0.1.0.md)
+- **Protocolo Experimental (EXP-001)**: [`docs/ENTE-EXPERIMENT-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-EXPERIMENT-001-v0.1.0.md)
 - **Consumo de Domínio 001 (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-001-v0.1.0.md)
 - **Consumo de Domínio 002 (Laboratório Clínico UTI)**: [`docs/ENTE-CASELAB-002-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-002-v0.1.0.md)
 
