@@ -1,8 +1,9 @@
 # ENTE-0 — Primeira Realização em C++26
 
-> **"Sempre pronto. Sempre incompleto."**
+> **Status: `IMPLEMENTED_CANDIDATE`**  
+> *"Sempre pronto. Sempre incompleto."*
 
-Este repositório contém **ENTE-0**, a menor realização concreta capaz de demonstrar ou falsificar a categoria constitutiva **ENTE** em C++26.
+Este repositório contém **ENTE-0**, a primeira realização mínima candidata capaz de demonstrar em testes determinísticos controlados os compromissos ontológicos e epistêmicos da categoria constitutiva **ENTE** em C++26.
 
 ---
 
@@ -13,13 +14,13 @@ Este repositório contém **ENTE-0**, a menor realização concreta capaz de dem
 2. ONTOLOGY (v0.1.0)      -> Vocabulário operacional, entidades e transições válidas
 3. RCC (v0.1.0)           -> Dinâmica contínua de reconsideração de interpretações
 4. SYSTEM (v0.1.0)        -> Desenho arquitetural em C++26
-5. EXPERIMENT (v0.1.0)    -> Protocolo de demonstração e falsificação
+5. EXPERIMENT (v0.1.0)    -> Protocolo de demonstração e falsificação empírica
 6. BOOTSTRAP (v0.1.0)     -> Roteiro executável de compilação e verificação
 ```
 
 ---
 
-## 2. Invariantes Constitutivos Ativos (C1..C12)
+## 2. Invariantes Constitutivos Ativos (C1..C14)
 
 - **C1 (IDENTITY)**: Identidade singular, distinguível e persistente.
 - **C2 (CONTINUITY)**: Transições preservam relação contínua e verificável com o estado anterior.
@@ -33,6 +34,8 @@ Este repositório contém **ENTE-0**, a menor realização concreta capaz de dem
 - **C10 (TEMPORAL_INTEGRITY)**: Encadeamento temporal e grafo causal RIT no ledger (REC).
 - **C11 (LINEAGE_SINGULARITY)**: Linhagem singular não bifurcada.
 - **C12 (HISTORY_RECOVERABILITY)**: Reconstrução histórica da trajetória a partir da Gênese (HRE).
+- **C13 (CONSTITUTIVE_FINALITY_SAFETY)**: Garantia de ramo único e integridade de finalidade local.
+- **C14 (CONSTITUTIVE_AUTHORITY_CONTINUITY)**: Linhagem contínua e ininterrupta de épocas de autoridade legítima.
 
 ---
 

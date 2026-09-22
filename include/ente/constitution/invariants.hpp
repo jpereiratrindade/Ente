@@ -18,7 +18,9 @@ enum class InvariantId : uint8_t {
     C9_GenesisAnchor,
     C10_TemporalIntegrity,
     C11_LineageSingularity,
-    C12_HistoryRecoverability
+    C12_HistoryRecoverability,
+    C13_ConstitutiveFinalitySafety,
+    C14_ConstitutiveAuthorityContinuity
 };
 
 [[nodiscard]] constexpr std::string_view to_string(InvariantId id) noexcept {
@@ -35,6 +37,8 @@ enum class InvariantId : uint8_t {
         case InvariantId::C10_TemporalIntegrity: return "C10_TEMPORAL_INTEGRITY";
         case InvariantId::C11_LineageSingularity: return "C11_LINEAGE_SINGULARITY";
         case InvariantId::C12_HistoryRecoverability: return "C12_HISTORY_RECOVERABILITY";
+        case InvariantId::C13_ConstitutiveFinalitySafety: return "C13_CONSTITUTIVE_FINALITY_SAFETY";
+        case InvariantId::C14_ConstitutiveAuthorityContinuity: return "C14_CONSTITUTIVE_AUTHORITY_CONTINUITY";
     }
     return "UNKNOWN_INVARIANT";
 }

@@ -48,10 +48,12 @@ struct HistoryEvent {
     core::Digest previous_event_digest; // Linear hash-chain linking (C10)
     std::vector<core::EventId> causal_predecessors; // RIT causal graph (RIT / C10)
     std::vector<core::EvidenceId> evidence_refs; // C4: Provenance
+    std::string authority_id{"auth-root"}; // C14: Authority provenance
+    std::string authority_epoch{"epoch-0"}; // C14: Authority Epoch
 
     std::string payload_content; // Explicit canonical serialization
     core::Digest payload_digest; // HASH(payload_content)
-    core::Digest event_digest;   // HASH(id + kind + identity + time + prev_digest + payload_digest + causal_digests)
+    core::Digest event_digest;   // HASH(id + kind + identity + time + prev_digest + payload_digest + causal_digests + auth)
 };
 
 } // namespace ente::history

@@ -16,6 +16,7 @@ endif()
 add_library(ente_core
     src/core/hash.cpp
     src/identity/genesis_service.cpp
+    src/authority/authority.cpp
     src/history/rec.cpp
     src/epistemic/interpretation.cpp
     src/judgment/fixture.cpp
@@ -36,6 +37,10 @@ add_executable(test_genesis tests/test_genesis.cpp)
 target_link_libraries(test_genesis PRIVATE ente_core)
 add_test(NAME test_genesis COMMAND test_genesis)
 
+add_executable(test_authority tests/test_authority.cpp)
+target_link_libraries(test_authority PRIVATE ente_core)
+add_test(NAME test_authority COMMAND test_authority)
+
 add_executable(test_epistemic tests/test_epistemic.cpp)
 target_link_libraries(test_epistemic PRIVATE ente_core)
 add_test(NAME test_epistemic COMMAND test_epistemic)
@@ -43,6 +48,10 @@ add_test(NAME test_epistemic COMMAND test_epistemic)
 add_executable(test_rec tests/test_rec.cpp)
 target_link_libraries(test_rec PRIVATE ente_core)
 add_test(NAME test_rec COMMAND test_rec)
+
+add_executable(test_persistence_restart tests/test_persistence_restart.cpp)
+target_link_libraries(test_persistence_restart PRIVATE ente_core)
+add_test(NAME test_persistence_restart COMMAND test_persistence_restart)
 
 add_executable(test_rcc tests/test_rcc.cpp)
 target_link_libraries(test_rcc PRIVATE ente_core)

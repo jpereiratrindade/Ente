@@ -116,7 +116,8 @@ std::expected<void, core::EnteError> EnteRealization::step(
         if (!app_res.has_value()) return app_res;
 
         // 4. Epistemic Action execution
-        if (reassess.epistemic_action == rcc::EpistemicAction::SuspendAction) {
+        if (reassess.epistemic_action == rcc::EpistemicAction::SuspendAction ||
+            reassess.epistemic_action == rcc::EpistemicAction::SeekEvidence) {
             domain_.suspend_action();
 
             auto ep_event = rec_.create_event(
@@ -125,20 +126,7 @@ std::expected<void, core::EnteError> EnteRealization::step(
                 time,
                 {rec_.head().id},
                 obs_evidence_ids,
-                "ACTION:SUSPEND_ACTION"
-            );
-            auto app_ep = rec_.append(std::move(ep_event));
-            if (!app_ep.has_value()) return app_ep;
-        } else if (reassess.epistemic_action == rcc::EpistemicAction::SeekEvidence) {
-            domain_.set_active_action(SyntheticDomain::Action::SeekEvidence);
-
-            auto ep_event = rec_.create_event(
-                history::EventKind::EpistemicAction,
-                id,
-                time,
-                {rec_.head().id},
-                obs_evidence_ids,
-                "ACTION:SEEK_EVIDENCE"
+                reassess.epistemic_action == rcc::EpistemicAction::SuspendAction ? "ACTION:SUSPEND_ACTION" : "ACTION:SEEK_EVIDENCE"
             );
             auto app_ep = rec_.append(std::move(ep_event));
             if (!app_ep.has_value()) return app_ep;
@@ -148,6 +136,13 @@ std::expected<void, core::EnteError> EnteRealization::step(
         if (domain_.is_action_suspended()) {
             domain_.resume_action(SyntheticDomain::Action::MoveForward);
         }
+    }
+
+    // 5. Constitutional Invariant enforcement
+    auto verification = verify();
+    if (verification.status == constitution::ConstitutiveStatus::Violated) {
+        domain_.suspend_action();
+        return std::unexpected(core::EnteError::ConstitutiveViolation);
     }
 
     return {};

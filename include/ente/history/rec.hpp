@@ -34,8 +34,14 @@ public:
         core::LogicalTime time,
         std::vector<core::EventId> causal_predecessors,
         std::vector<core::EvidenceId> evidence_refs,
-        std::string payload
+        std::string payload,
+        std::string authority_id = "auth-root",
+        std::string authority_epoch = "epoch-0"
     ) const noexcept;
+
+    // File persistence and crash-recovery methods
+    [[nodiscard]] std::expected<void, core::EnteError> save_to_file(std::string_view filepath) const noexcept;
+    [[nodiscard]] static std::expected<RecoverableHistory, core::EnteError> load_from_file(std::string_view filepath) noexcept;
 
     // Direct mutation for tamper-testing (used strictly by tests to falsify C12)
     void tamper_event_payload_for_testing(size_t index, std::string_view corrupted_payload) noexcept;

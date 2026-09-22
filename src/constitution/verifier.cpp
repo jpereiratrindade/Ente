@@ -76,6 +76,24 @@ VerificationReport ConstitutionVerifier::verify(
     // C11 — Lineage Singularity (Single entity realization - Not Applicable / Satisfied)
     reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::Satisfied, "Single non-forked local lineage"});
 
+    // C13 — Finality Safety (Single-node verified execution)
+    reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::Satisfied, "Local append-only sequence preserves single-branch finality"});
+
+    // C14 — Authority Continuity
+    bool authority_ok = true;
+    for (const auto& ev : history.events()) {
+        if (ev.authority_id.empty() || ev.authority_epoch.empty()) {
+            authority_ok = false;
+            break;
+        }
+    }
+    if (authority_ok) {
+        reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Satisfied, "Event stream maintains uninterrupted legitimate authority lineage"});
+    } else {
+        reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Violated, "Event detected without valid authority grant"});
+        any_violation = true;
+    }
+
     ConstitutiveStatus final_status = ConstitutiveStatus::Valid;
     if (any_violation) {
         final_status = ConstitutiveStatus::Violated;

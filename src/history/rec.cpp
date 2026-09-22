@@ -2,6 +2,8 @@
 #include "ente/core/hash.hpp"
 #include <format>
 #include <numeric>
+#include <fstream>
+#include <sstream>
 
 namespace ente::history {
 
@@ -20,7 +22,7 @@ namespace {
         evidence_concat += ",";
     }
 
-    return std::format("{}:{}:{}:{}:{}:{}:{}:{}",
+    return std::format("{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         ev.id.view(),
         to_string(ev.kind),
         ev.identity.view(),
@@ -28,6 +30,8 @@ namespace {
         ev.previous_event_digest.value,
         causal_concat,
         evidence_concat,
+        ev.authority_id,
+        ev.authority_epoch,
         ev.payload_digest.value
     );
 }
@@ -47,7 +51,9 @@ HistoryEvent RecoverableHistory::create_event(
     core::LogicalTime time,
     std::vector<core::EventId> causal_predecessors,
     std::vector<core::EvidenceId> evidence_refs,
-    std::string payload
+    std::string payload,
+    std::string authority_id,
+    std::string authority_epoch
 ) const noexcept {
     core::EventId ev_id(std::format("E{:04d}", events_.size()));
     core::Digest prev_digest = head_digest();
@@ -61,6 +67,8 @@ HistoryEvent RecoverableHistory::create_event(
         .previous_event_digest = prev_digest,
         .causal_predecessors = std::move(causal_predecessors),
         .evidence_refs = std::move(evidence_refs),
+        .authority_id = std::move(authority_id),
+        .authority_epoch = std::move(authority_epoch),
         .payload_content = std::move(payload),
         .payload_digest = p_digest,
         .event_digest = core::Digest()
@@ -170,6 +178,133 @@ void RecoverableHistory::tamper_event_payload_for_testing(size_t index, std::str
     if (index < events_.size()) {
         events_[index].payload_content = corrupted_payload;
     }
+}
+
+std::expected<void, core::EnteError> RecoverableHistory::save_to_file(std::string_view filepath) const noexcept {
+    std::ofstream out(std::string(filepath), std::ios::out | std::ios::trunc);
+    if (!out.is_open()) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
+
+    for (const auto& ev : events_) {
+        std::string causal_str;
+        for (size_t i = 0; i < ev.causal_predecessors.size(); ++i) {
+            causal_str += ev.causal_predecessors[i].view();
+            if (i + 1 < ev.causal_predecessors.size()) causal_str += ",";
+        }
+
+        std::string evidence_str;
+        for (size_t i = 0; i < ev.evidence_refs.size(); ++i) {
+            evidence_str += ev.evidence_refs[i].view();
+            if (i + 1 < ev.evidence_refs.size()) evidence_str += ",";
+        }
+
+        out << ev.id.view() << "|"
+            << to_string(ev.kind) << "|"
+            << ev.identity.view() << "|"
+            << ev.logical_time << "|"
+            << ev.previous_event_digest.value << "|"
+            << ev.payload_digest.value << "|"
+            << ev.event_digest.value << "|"
+            << ev.authority_id << "|"
+            << ev.authority_epoch << "|"
+            << causal_str << "|"
+            << evidence_str << "|"
+            << ev.payload_content << "\n";
+    }
+
+    return {};
+}
+
+std::expected<RecoverableHistory, core::EnteError> RecoverableHistory::load_from_file(std::string_view filepath) noexcept {
+    std::string path_str(filepath);
+    std::ifstream in(path_str);
+    if (!in.is_open()) {
+        return std::unexpected(core::EnteError::HistoryGap);
+    }
+
+    RecoverableHistory rec;
+    std::string line;
+
+    auto parse_kind = [](std::string_view k) -> EventKind {
+        if (k == "GENESIS") return EventKind::Genesis;
+        if (k == "OBSERVATION") return EventKind::Observation;
+        if (k == "INTERPRETATION") return EventKind::Interpretation;
+        if (k == "PERTURBATION") return EventKind::Perturbation;
+        if (k == "JUDGMENT") return EventKind::Judgment;
+        if (k == "EPISTEMIC_ACTION") return EventKind::EpistemicAction;
+        if (k == "ACTION_EXECUTION") return EventKind::ActionExecution;
+        if (k == "REINTERPRETATION") return EventKind::Reinterpretation;
+        if (k == "ADAPTATION") return EventKind::Adaptation;
+        if (k == "CONSTITUTIVE_WARNING") return EventKind::ConstitutiveWarning;
+        if (k == "CONSTITUTIVE_REPAIR") return EventKind::ConstitutiveRepair;
+        if (k == "COHERENCE_RESTORED") return EventKind::CoherenceRestored;
+        return EventKind::Observation;
+    };
+
+    while (std::getline(in, line)) {
+        if (line.empty()) continue;
+        std::stringstream ss(line);
+        std::string id, kind, identity, time_str, prev_digest, p_digest, e_digest, auth_id, auth_epoch, causal_str, evidence_str, payload;
+
+        if (std::getline(ss, id, '|') &&
+            std::getline(ss, kind, '|') &&
+            std::getline(ss, identity, '|') &&
+            std::getline(ss, time_str, '|') &&
+            std::getline(ss, prev_digest, '|') &&
+            std::getline(ss, p_digest, '|') &&
+            std::getline(ss, e_digest, '|') &&
+            std::getline(ss, auth_id, '|') &&
+            std::getline(ss, auth_epoch, '|') &&
+            std::getline(ss, causal_str, '|') &&
+            std::getline(ss, evidence_str, '|') &&
+            std::getline(ss, payload)) {
+
+            std::vector<core::EventId> causal_vec;
+            if (!causal_str.empty()) {
+                std::stringstream css(causal_str);
+                std::string item;
+                while (std::getline(css, item, ',')) {
+                    if (!item.empty()) causal_vec.emplace_back(item);
+                }
+            }
+
+            std::vector<core::EvidenceId> evidence_vec;
+            if (!evidence_str.empty()) {
+                std::stringstream ess(evidence_str);
+                std::string item;
+                while (std::getline(ess, item, ',')) {
+                    if (!item.empty()) evidence_vec.emplace_back(item);
+                }
+            }
+
+            HistoryEvent ev{
+                .id = core::EventId(id),
+                .kind = parse_kind(kind),
+                .identity = core::IdentityId(identity),
+                .logical_time = static_cast<core::LogicalTime>(std::stoull(time_str)),
+                .previous_event_digest = core::Digest(prev_digest),
+                .causal_predecessors = std::move(causal_vec),
+                .evidence_refs = std::move(evidence_vec),
+                .authority_id = auth_id,
+                .authority_epoch = auth_epoch,
+                .payload_content = payload,
+                .payload_digest = core::Digest(p_digest),
+                .event_digest = core::Digest(e_digest)
+            };
+
+            auto app_res = rec.append(std::move(ev));
+            if (!app_res.has_value()) {
+                return std::unexpected(app_res.error());
+            }
+        }
+    }
+
+    if (!rec.verify_integrity()) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
+
+    return rec;
 }
 
 } // namespace ente::history
