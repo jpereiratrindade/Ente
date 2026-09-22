@@ -52,12 +52,17 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação
+### Executar a Suíte de Verificação Completa (11 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
 ```
 
-### Executar o Experimento de Falsificação Diretamente
+### Executar a Demonstração da Vertical Unificada
+```bash
+./build/test_vertical_lifecycle
+```
+
+### Executar o Experimento Comparativo com Baselines
 ```bash
 ./build/test_experiment_001
 ```

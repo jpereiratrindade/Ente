@@ -1,11 +1,13 @@
 #pragma once
 
 #include "ente/identity/genesis_service.hpp"
+#include "ente/identity/material_anchor.hpp"
 #include "ente/authority/authority.hpp"
 #include "ente/history/rec.hpp"
 #include "ente/epistemic/interpretation.hpp"
 #include "ente/judgment/fixture.hpp"
 #include "ente/rcc/reassessment.hpp"
+#include "ente/assurance/runtime_assurance.hpp"
 #include "ente/constitution/verifier.hpp"
 #include "ente/realization/domain.hpp"
 #include <vector>
@@ -33,9 +35,18 @@ class EnteRealization {
 public:
     explicit EnteRealization(std::unique_ptr<judgment::JudgmentEngine> engine = std::make_unique<judgment::FixtureJudgmentEngine>());
 
-    [[nodiscard]] std::expected<identity::GenesisRecord, core::EnteError> genesis(const core::IdentityId& id);
+    [[nodiscard]] std::expected<identity::GenesisRecord, core::EnteError> genesis(
+        const core::IdentityId& id,
+        std::optional<identity::MaterialAnchor> initial_anchor = std::nullopt
+    );
 
-    // Cold Recovery from historical REC (restores identity, authority, interpretation, and blocks 2nd Genesis)
+    // Hardware replacement under RIT (Ship of Theseus: S0 -> S1) preserving Identity
+    [[nodiscard]] std::expected<identity::MaterialBinding, core::EnteError> migrate_hardware(
+        identity::MaterialAnchor new_anchor,
+        core::LogicalTime time
+    );
+
+    // Cold Recovery from historical REC (restores identity, authority, material bindings, interpretation, and blocks 2nd Genesis)
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_history(history::RecoverableHistory history);
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_file(std::string_view filepath);
 
@@ -48,6 +59,7 @@ public:
     [[nodiscard]] constitution::VerificationReport verify() const noexcept;
 
     [[nodiscard]] const identity::IdentityState& identity() const noexcept { return genesis_service_.state(); }
+    [[nodiscard]] const identity::MaterialBindingRegistry& material_bindings() const noexcept { return bindings_; }
     [[nodiscard]] const history::RecoverableHistory& history() const noexcept { return rec_; }
     [[nodiscard]] history::RecoverableHistory& history_mut() noexcept { return rec_; } // for tamper test
     [[nodiscard]] const std::optional<epistemic::Interpretation>& current_interpretation() const noexcept { return current_interpretation_; }
@@ -58,10 +70,12 @@ public:
 
 private:
     identity::GenesisService genesis_service_;
+    identity::MaterialBindingRegistry bindings_;
     authority::AuthorityLineage authority_;
     history::RecoverableHistory rec_;
     std::optional<epistemic::Interpretation> current_interpretation_;
     rcc::ContextReassessment rcc_;
+    assurance::RuntimeAssurance assurance_;
     std::unique_ptr<judgment::JudgmentEngine> judgment_;
     constitution::ConstitutionVerifier verifier_;
     SyntheticDomain domain_;

@@ -76,3 +76,7 @@ add_test(NAME test_verifier COMMAND test_verifier)
 add_executable(test_experiment_001 tests/test_experiment_001.cpp)
 target_link_libraries(test_experiment_001 PRIVATE ente_core)
 add_test(NAME test_experiment_001 COMMAND test_experiment_001)
+
+add_executable(test_vertical_lifecycle tests/test_vertical_lifecycle.cpp)
+target_link_libraries(test_vertical_lifecycle PRIVATE ente_core)
+add_test(NAME test_vertical_lifecycle COMMAND test_vertical_lifecycle)

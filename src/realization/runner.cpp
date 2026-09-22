@@ -7,7 +7,10 @@ namespace ente::realization {
 EnteRealization::EnteRealization(std::unique_ptr<judgment::JudgmentEngine> engine)
     : judgment_(std::move(engine)) {}
 
-std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis(const core::IdentityId& id) {
+std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis(
+    const core::IdentityId& id,
+    std::optional<identity::MaterialAnchor> initial_anchor
+) {
     core::Digest const_digest = core::HashUtil::sha256("CONSTITUTION-v0.6.0");
     core::Digest basal_digest = core::HashUtil::sha256("BASAL-STATE-v0.1.0");
 
@@ -21,21 +24,32 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
         return std::unexpected(gen_res.error());
     }
 
-    // Initialize root authority epoch bound to Genesis (C14)
+    // 1. Bind Initial Material Anchor (SimulatedMemory or Hardware TPM)
+    identity::MaterialAnchor anchor = initial_anchor.value_or(identity::MaterialAnchor{
+        .id = identity::MaterialAnchorId("anchor-genesis-0"),
+        .type = identity::SubstrateType::SimulatedMemory,
+        .hardware_fingerprint = "fp-simulated-root-memory"
+    });
+    auto b_res = bindings_.bind_initial_anchor(id, anchor, 0);
+    if (!b_res.has_value()) {
+        return std::unexpected(b_res.error());
+    }
+
+    // 2. Initialize root authority epoch bound to Genesis (C14)
     authority::AuthorityId root_auth(std::format("auth-root-{}", id.view()));
     auto ep_res = authority_.initialize_root_epoch(root_auth, 0);
     if (!ep_res.has_value()) {
         return std::unexpected(ep_res.error());
     }
 
-    // Record Genesis into REC with active authority epoch
+    // 3. Record Genesis into REC with active authority epoch
     auto gen_event = rec_.create_event(
         history::EventKind::Genesis,
         id,
         0,
         {},
         {},
-        std::format("GENESIS:{}:{}", id.view(), gen_res->genesis_digest.value),
+        std::format("GENESIS:{}:{}:{}", id.view(), gen_res->genesis_digest.value, anchor.id.view()),
         std::string(root_auth.view()),
         std::string(ep_res->epoch_id.view())
     );
@@ -46,6 +60,43 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
     }
 
     return *gen_res;
+}
+
+std::expected<identity::MaterialBinding, core::EnteError> EnteRealization::migrate_hardware(
+    identity::MaterialAnchor new_anchor,
+    core::LogicalTime time
+) {
+    if (!genesis_service_.has_genesis()) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+
+    auto b_res = bindings_.migrate_to_anchor(new_anchor, time);
+    if (!b_res.has_value()) {
+        return std::unexpected(b_res.error());
+    }
+
+    // Record Material Migration into REC under RIT
+    const auto& id = identity().id;
+    std::string current_auth_id = authority_.empty() ? "auth-root" : std::string(authority_.active_epoch().authorized_authority.view());
+    std::string current_epoch_id = authority_.empty() ? "epoch-0" : std::string(authority_.active_epoch().epoch_id.view());
+
+    auto adapt_event = rec_.create_event(
+        history::EventKind::Adaptation,
+        id,
+        time,
+        {rec_.head().id},
+        {},
+        std::format("MIGRATE_HARDWARE:{}:{}", new_anchor.id.view(), new_anchor.hardware_fingerprint),
+        current_auth_id,
+        current_epoch_id
+    );
+
+    auto app_res = rec_.append(std::move(adapt_event));
+    if (!app_res.has_value()) {
+        return std::unexpected(app_res.error());
+    }
+
+    return *b_res;
 }
 
 std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_history(history::RecoverableHistory history) {
@@ -76,6 +127,14 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
     if (!gen_res.has_value()) {
         return std::unexpected(gen_res.error());
     }
+
+    // Reconstruct Initial Material Binding
+    identity::MaterialAnchor rec_anchor{
+        .id = identity::MaterialAnchorId("anchor-recovered-0"),
+        .type = identity::SubstrateType::SimulatedMemory,
+        .hardware_fingerprint = "fp-recovered"
+    };
+    (void)instance.bindings_.bind_initial_anchor(gen_ev.identity, rec_anchor, gen_ev.logical_time);
 
     // Reconstruct Authority Lineage from events
     authority::AuthorityId auth_id(gen_ev.authority_id);
@@ -118,7 +177,7 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_fi
 void EnteRealization::adopt_interpretation(epistemic::Interpretation new_interp) {
     current_interpretation_ = std::move(new_interp);
 
-    // ACTION_SUPPORT_TRACE: If the new interpretation does not support MoveForward (e.g. obstruction/wait), suspend action immediately!
+    // Runtime Assurance & Action Support Trace
     if (current_interpretation_->subject != "path_clear" ||
         current_interpretation_->status == epistemic::InterpretationStatus::Weakened ||
         current_interpretation_->status == epistemic::InterpretationStatus::Contradicted) {

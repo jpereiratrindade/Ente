@@ -39,7 +39,8 @@ double EventScopedPRNG::derive_double(
     uint64_t invocation_index
 ) const noexcept {
     uint64_t val = derive_u64(event_id, purpose, invocation_index);
-    return static_cast<double>(val) / static_cast<double>(UINT64_MAX);
+    // Cast to double and divide by 2^64 to strictly guarantee [0.0, 1.0)
+    return static_cast<double>(val) / (static_cast<double>(UINT64_MAX) + 1.0);
 }
 
 } // namespace ente::core

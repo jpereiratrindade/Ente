@@ -23,17 +23,21 @@ struct AttestationEvidence {
 };
 
 enum class AppraisalVerdict : uint8_t {
-    Trustworthy,
+    TrustworthyVerified,
+    StructurallyAcceptable,
     ConfigMismatch,
     HardwareUnrecognized,
+    MeasurementMismatch,
     Untrusted
 };
 
 [[nodiscard]] constexpr std::string_view to_string(AppraisalVerdict v) noexcept {
     switch (v) {
-        case AppraisalVerdict::Trustworthy: return "TRUSTWORTHY";
+        case AppraisalVerdict::TrustworthyVerified: return "TRUSTWORTHY_VERIFIED";
+        case AppraisalVerdict::StructurallyAcceptable: return "STRUCTURALLY_ACCEPTABLE";
         case AppraisalVerdict::ConfigMismatch: return "CONFIG_MISMATCH";
         case AppraisalVerdict::HardwareUnrecognized: return "HARDWARE_UNRECOGNIZED";
+        case AppraisalVerdict::MeasurementMismatch: return "MEASUREMENT_MISMATCH";
         case AppraisalVerdict::Untrusted: return "UNTRUSTED";
     }
     return "UNKNOWN_VERDICT";

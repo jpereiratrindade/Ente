@@ -8,6 +8,7 @@ AttestationResult IndependentAttestationVerifier::evaluate(
     const AttestationEvidence& evidence,
     const core::Digest& expected_constitution_digest
 ) const noexcept {
+    // 1. Hardware Anchor Fingerprint Validation
     if (evidence.anchor.id.empty() || evidence.anchor.hardware_fingerprint.empty()) {
         return AttestationResult{
             .verdict = AppraisalVerdict::HardwareUnrecognized,
@@ -18,6 +19,7 @@ AttestationResult IndependentAttestationVerifier::evaluate(
         };
     }
 
+    // 2. Configuration & Constitution Digest Validation
     if (evidence.configuration_digest != expected_constitution_digest) {
         return AttestationResult{
             .verdict = AppraisalVerdict::ConfigMismatch,
@@ -28,17 +30,55 @@ AttestationResult IndependentAttestationVerifier::evaluate(
         };
     }
 
+    // 3. Software Measurements Validation (Ensure no empty components)
+    for (const auto& m : evidence.measurements) {
+        if (m.component_name.empty() || m.code_digest.is_zero()) {
+            return AttestationResult{
+                .verdict = AppraisalVerdict::MeasurementMismatch,
+                .verifier_id = "independent-verifier-0",
+                .evidence_digest = evidence.configuration_digest,
+                .evaluated_at = evidence.measured_at,
+                .satisfies_constitutional_floor = false
+            };
+        }
+    }
+
+    // 4. Cryptographic Attestation Signature Verification
     std::string evidence_payload = std::format("{}:{}:{}",
         evidence.anchor.id.view(),
         evidence.configuration_digest.value,
         evidence.measured_at
     );
-    core::Digest ev_digest = core::HashUtil::sha256(evidence_payload);
+    core::Digest expected_signature = core::HashUtil::combine(
+        core::HashUtil::sha256(evidence.anchor.hardware_fingerprint),
+        evidence_payload
+    );
+
+    if (evidence.attestation_signature.is_zero()) {
+        // Evidence is structurally acceptable, but lacks cryptographic attestation signature
+        return AttestationResult{
+            .verdict = AppraisalVerdict::StructurallyAcceptable,
+            .verifier_id = "independent-verifier-0",
+            .evidence_digest = core::HashUtil::sha256(evidence_payload),
+            .evaluated_at = evidence.measured_at,
+            .satisfies_constitutional_floor = true
+        };
+    }
+
+    if (evidence.attestation_signature != expected_signature) {
+        return AttestationResult{
+            .verdict = AppraisalVerdict::Untrusted,
+            .verifier_id = "independent-verifier-0",
+            .evidence_digest = core::HashUtil::sha256(evidence_payload),
+            .evaluated_at = evidence.measured_at,
+            .satisfies_constitutional_floor = false
+        };
+    }
 
     return AttestationResult{
-        .verdict = AppraisalVerdict::Trustworthy,
+        .verdict = AppraisalVerdict::TrustworthyVerified,
         .verifier_id = "independent-verifier-0",
-        .evidence_digest = ev_digest,
+        .evidence_digest = expected_signature,
         .evaluated_at = evidence.measured_at,
         .satisfies_constitutional_floor = true
     };
