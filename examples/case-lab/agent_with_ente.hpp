@@ -37,7 +37,10 @@ public:
 
         // 2. Pass observations through ENTE-0 pipeline (RCC + Action Support + Runtime Assurance)
         auto step_res = ente_.step(logical_time, ente_obs, "CaseLab Step");
-        (void)step_res;
+        if (!step_res.has_value()) {
+            current_state_ = VehicleState::Holding;
+            return VehicleAction::Hold;
+        }
 
         // 3. Query Domain State governed by Runtime Assurance
         if (ente_.domain().is_action_suspended()) {

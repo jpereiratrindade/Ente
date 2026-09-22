@@ -8,12 +8,12 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <filesystem>
 
-int main() {
-    std::cout << "======================================================================\n";
-    std::cout << "  ENTE-CASELAB-001: Autonomous Vehicle Departure Under Anomaly\n";
-    std::cout << "  KitKat Scenario Analog: Epistemic Vulnerability & RCC Safety\n";
-    std::cout << "======================================================================\n\n";
+namespace {
+
+void run_sequential_benchmark() {
+    std::cout << "--- 1. Canonical Sequential Benchmark (S0 -> S6) ---\n";
 
     auto scenarios = caselab::get_kitkat_lab_scenarios();
 
@@ -96,11 +96,124 @@ int main() {
     assert(ente_agent.ente().history().verify_integrity());
     assert(ente_agent.ente().history().size() > 0);
 
+    // Assert Causal Trace in REC: verify presence of Perturbation and SafeHold events
+    bool found_rcc_perturbation = false;
+    bool found_safe_hold_directive = false;
+    for (const auto& ev : ente_agent.ente().history().events()) {
+        if (ev.payload_content.find("RCC:PERTURBATION") != std::string::npos) {
+            found_rcc_perturbation = true;
+        }
+        if (ev.payload_content.find("RUNTIME_ASSURANCE:SAFE_HOLD") != std::string::npos) {
+            found_safe_hold_directive = true;
+        }
+    }
+    assert(found_rcc_perturbation);
+    assert(found_safe_hold_directive);
+
     // Constitutional Verifier
     auto report = ente_agent.ente().verify();
     assert(report.status != ente::constitution::ConstitutiveStatus::Violated);
     assert(report.status == ente::constitution::ConstitutiveStatus::Weakened); // Actively holding under S6 anomaly
+}
 
-    std::cout << ">>> ALL CASE-LAB EXPERIMENTAL ASSERTIONS PASSED SUCCESSFULLY <<<\n";
+void run_bootstrap_anomaly_test() {
+    std::cout << "--- 2. Bootstrap Adversarial Test: Anomaly at First Step (t=1) ---\n";
+
+    // Scenario where the VERY FIRST step after Genesis contains an UNKNOWN critical anomaly (KitKat near wheel)
+    caselab::AgentWithEnte fresh_agent(ente::core::IdentityId{"ente-av-bootstrap"});
+
+    auto scenarios = caselab::get_kitkat_lab_scenarios();
+    const auto& s2 = scenarios[2]; // Near-Wheel Anomaly
+
+    auto action = fresh_agent.process(s2.observations, 1);
+    assert(action == caselab::VehicleAction::Hold);
+    assert(fresh_agent.state() == caselab::VehicleState::Holding);
+    assert(fresh_agent.ente().domain().is_action_suspended());
+
+    // Verify that first step evaluated RCC directly without bypassing security
+    bool found_safe_hold = false;
+    for (const auto& ev : fresh_agent.ente().history().events()) {
+        if (ev.payload_content.find("RUNTIME_ASSURANCE:SAFE_HOLD") != std::string::npos) {
+            found_safe_hold = true;
+        }
+    }
+    assert(found_safe_hold);
+    std::cout << "[PASS] Anomaly at Genesis immediately enforced SafeHold without bootstrap bypass.\n\n";
+}
+
+void run_cold_recovery_under_anomaly_test() {
+    std::cout << "--- 3. Cold Recovery During Active Anomaly Test ---\n";
+
+    std::string test_file = "caselab_anomaly_recovery.rec";
+    if (std::filesystem::exists(test_file)) {
+        std::filesystem::remove(test_file);
+    }
+
+    ente::core::IdentityId id{"ente-av-crash-recover"};
+
+    {
+        // Process A encounters anomaly S2 and holds
+        caselab::AgentWithEnte agent_a(id);
+        auto scenarios = caselab::get_kitkat_lab_scenarios();
+        auto a1 = agent_a.process(scenarios[0].observations, 10); // S0
+        assert(a1 == caselab::VehicleAction::Depart);
+
+        auto a2 = agent_a.process(scenarios[2].observations, 20); // S2 anomaly
+        assert(a2 == caselab::VehicleAction::Hold);
+        assert(agent_a.ente().domain().is_action_suspended());
+
+        auto save_res = agent_a.ente().history().save_to_file(test_file);
+        assert(save_res.has_value());
+    }
+
+    {
+        // Process B recovers cold from disk
+        auto recover_res = ente::realization::EnteRealization::recover_from_file(test_file);
+        assert(recover_res.has_value());
+        auto& recovered_ente = *recover_res;
+
+        // Must still be suspended!
+        assert(recovered_ente.domain().is_action_suspended());
+        assert(recovered_ente.history().verify_integrity());
+    }
+
+    std::filesystem::remove(test_file);
+    std::cout << "[PASS] Cold recovery preserved suspended SafeHold state accurately across process restart.\n\n";
+}
+
+void run_order_invariance_test() {
+    std::cout << "--- 4. Order Invariance & Adversarial Sequence Test ---\n";
+
+    // Run scenarios in reverse order: S6 -> S5 -> S4 -> S3 -> S2 -> S1 -> S0
+    auto scenarios = caselab::get_kitkat_lab_scenarios();
+    caselab::AgentWithEnte reverse_agent(ente::core::IdentityId{"ente-av-rev"});
+
+    uint64_t t = 500;
+    for (int i = static_cast<int>(scenarios.size()) - 1; i >= 0; --i) {
+        t += 10;
+        const auto& sc = scenarios[static_cast<size_t>(i)];
+        auto act = reverse_agent.process(sc.observations, t);
+        bool expected_hold = sc.should_hold_for_safety;
+        assert(act == (expected_hold ? caselab::VehicleAction::Hold : caselab::VehicleAction::Depart));
+    }
+
+    assert(reverse_agent.ente().history().verify_integrity());
+    std::cout << "[PASS] Reverse order scenario sequence evaluated correctly.\n\n";
+}
+
+} // namespace
+
+int main() {
+    std::cout << "======================================================================\n";
+    std::cout << "  ENTE-CASELAB-001: Autonomous Vehicle Departure Under Anomaly\n";
+    std::cout << "  KitKat Scenario Analog: Epistemic Vulnerability & RCC Safety\n";
+    std::cout << "======================================================================\n\n";
+
+    run_sequential_benchmark();
+    run_bootstrap_anomaly_test();
+    run_cold_recovery_under_anomaly_test();
+    run_order_invariance_test();
+
+    std::cout << ">>> ALL CASE-LAB EXPERIMENTAL ASSERTIONS PASSED WITH FULL ADVERSARIAL RIGOR <<<\n";
     return 0;
 }

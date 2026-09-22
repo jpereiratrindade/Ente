@@ -302,9 +302,6 @@ std::expected<void, core::EnteError> EnteRealization::step(
         );
         auto app_res = rec_.append(std::move(interp_event));
         if (!app_res.has_value()) return app_res;
-
-        domain_.resume_action(SyntheticDomain::Action::MoveForward);
-        return {};
     }
 
     // 3. Continuous Context Reassessment (RCC)
@@ -349,7 +346,7 @@ std::expected<void, core::EnteError> EnteRealization::step(
     // 6. Enforce Safety Directive upon Domain Substrate
     switch (safety_directive) {
         case assurance::SafetyDirective::AllowAction:
-            if (domain_.is_action_suspended()) {
+            if (domain_.is_action_suspended() || domain_.active_action() == SyntheticDomain::Action::None) {
                 domain_.resume_action(SyntheticDomain::Action::MoveForward);
             }
             break;
