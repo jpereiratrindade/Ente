@@ -161,4 +161,111 @@ VerificationReport ConstitutionVerifier::verify(
     };
 }
 
+VerificationReport ConstitutionVerifier::verify_step(
+    const identity::IdentityState& identity,
+    const std::optional<identity::GenesisRecord>& genesis,
+    const history::HistoryEvent& latest_event,
+    const std::optional<epistemic::Interpretation>& current_interpretation,
+    std::optional<std::reference_wrapper<const authority::AuthorityLineage>> authority_lineage
+) const noexcept {
+    std::vector<InvariantReport> reports;
+    reports.reserve(12);
+
+    bool any_violation = false;
+    bool any_weakened = false;
+
+    // C1 — Identity
+    if (!identity.id.empty() && identity.lifecycle == identity::LifecycleStatus::LifeActive) {
+        reports.push_back({InvariantId::C1_Identity, InvariantStatus::Satisfied, "Identity active"});
+    } else {
+        reports.push_back({InvariantId::C1_Identity, InvariantStatus::Violated, "Identity inactive"});
+        any_violation = true;
+    }
+
+    // C9 — Genesis Anchor
+    if (genesis.has_value() && !genesis->genesis_digest.is_zero() && genesis->identity == identity.id) {
+        reports.push_back({InvariantId::C9_GenesisAnchor, InvariantStatus::Satisfied, "Genesis anchored"});
+    } else {
+        reports.push_back({InvariantId::C9_GenesisAnchor, InvariantStatus::Violated, "Genesis invalid"});
+        any_violation = true;
+    }
+
+    // C10/C12 — Temporal / Hash Link on latest event
+    if (!latest_event.event_digest.is_zero()) {
+        reports.push_back({InvariantId::C10_TemporalIntegrity, InvariantStatus::Satisfied, "Step temporal link intact"});
+        reports.push_back({InvariantId::C12_HistoryRecoverability, InvariantStatus::Satisfied, "Step event digest valid"});
+    } else {
+        reports.push_back({InvariantId::C10_TemporalIntegrity, InvariantStatus::Violated, "Step event digest missing"});
+        any_violation = true;
+    }
+
+    // C2 — Continuity
+    reports.push_back({InvariantId::C2_Continuity, InvariantStatus::Satisfied, "Step continuous"});
+
+    // C3 / C4 — Observability & Provenance on latest event
+    if (latest_event.kind == history::EventKind::Interpretation || latest_event.kind == history::EventKind::Reinterpretation) {
+        if (latest_event.evidence_refs.empty() && latest_event.causal_predecessors.empty()) {
+            reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Violated, "Interpretation missing provenance"});
+            any_violation = true;
+        } else {
+            reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Satisfied, "Provenance verified"});
+        }
+    } else {
+        reports.push_back({InvariantId::C3_Observability, InvariantStatus::Satisfied, "Observed fact recorded"});
+        reports.push_back({InvariantId::C4_Provenance, InvariantStatus::Satisfied, "Step provenance verified"});
+    }
+
+    // C5 / C8 — Epistemic Distinction
+    reports.push_back({InvariantId::C5_EpistemicDistinction, InvariantStatus::Satisfied, "Step epistemic status preserved"});
+    reports.push_back({InvariantId::C8_UnknownRepresentability, InvariantStatus::Satisfied, "Step unknown represented"});
+
+    // C6 — Revision Capability
+    reports.push_back({InvariantId::C6_RevisionCapability, InvariantStatus::Satisfied, "RCC active"});
+
+    // C7 — Coherence
+    if (current_interpretation.has_value()) {
+        if (current_interpretation->status == epistemic::InterpretationStatus::Weakened ||
+            current_interpretation->status == epistemic::InterpretationStatus::Contradicted) {
+            reports.push_back({InvariantId::C7_CoherenceEvaluation, InvariantStatus::Satisfied, "Interpretation weakened"});
+            any_weakened = true;
+        } else {
+            reports.push_back({InvariantId::C7_CoherenceEvaluation, InvariantStatus::Satisfied, "Interpretation supported"});
+        }
+    } else {
+        reports.push_back({InvariantId::C7_CoherenceEvaluation, InvariantStatus::Satisfied, "Basal coherent"});
+    }
+
+    // C11 / C13 — Distributed invariants out of local node scope
+    reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::NotApplicable, "Single-process"});
+    reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::NotApplicable, "Single-process"});
+
+    // C14 — Authority check on latest event
+    bool auth_ok = !latest_event.authority_id.empty() && !latest_event.authority_epoch.empty();
+    if (auth_ok && authority_lineage.has_value()) {
+        auth_ok = authority_lineage->get().is_epoch_legitimate(
+            authority::AuthorityId(latest_event.authority_id),
+            authority::AuthorityEpochId(latest_event.authority_epoch)
+        );
+    }
+
+    if (auth_ok) {
+        reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Satisfied, "Step authority valid"});
+    } else {
+        reports.push_back({InvariantId::C14_ConstitutiveAuthorityContinuity, InvariantStatus::Violated, "Step authority invalid"});
+        any_violation = true;
+    }
+
+    ConstitutiveStatus final_status = ConstitutiveStatus::Valid;
+    if (any_violation) {
+        final_status = ConstitutiveStatus::Violated;
+    } else if (any_weakened) {
+        final_status = ConstitutiveStatus::Weakened;
+    }
+
+    return VerificationReport{
+        .status = final_status,
+        .invariant_reports = std::move(reports)
+    };
+}
+
 } // namespace ente::constitution

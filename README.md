@@ -52,7 +52,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação Completa (15 Testes)
+### Executar a Suíte de Verificação Completa (16 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
 ```
@@ -75,6 +75,11 @@ ctest --test-dir build --output-on-failure --verbose
 ### Executar o Benchmark Estocástico de Monte Carlo (Pareto Dominance)
 ```bash
 ./build/test_monte_carlo_benchmark
+```
+
+### Executar o Teste de Longevidade & Escalabilidade do REC (10k+ Eventos)
+```bash
+./build/test_rec_longevity
 ```
 
 ### Executar o Laboratório de Domínio 001: Veículo Autônomo / KitKat (ENTE-CASELAB-001)

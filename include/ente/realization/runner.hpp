@@ -83,6 +83,7 @@ private:
     std::unique_ptr<judgment::JudgmentEngine> judgment_;
     constitution::ConstitutionVerifier verifier_;
     SyntheticDomain domain_;
+    mutable constitution::ConstitutiveStatus constitutive_status_{constitution::ConstitutiveStatus::Valid};
 };
 
 class ScenarioRunner {

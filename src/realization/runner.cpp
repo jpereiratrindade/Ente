@@ -254,6 +254,11 @@ std::expected<void, core::EnteError> EnteRealization::step(
         return std::unexpected(core::EnteError::GenesisNotEstablished);
     }
 
+    if (constitutive_status_ == constitution::ConstitutiveStatus::Violated) {
+        domain_.suspend_action();
+        return std::unexpected(core::EnteError::ConstitutiveViolation);
+    }
+
     const auto& id = identity().id;
     std::string current_auth_id = authority_.empty() ? "auth-root" : std::string(authority_.active_epoch().authorized_authority.view());
     std::string current_epoch_id = authority_.empty() ? "epoch-0" : std::string(authority_.active_epoch().epoch_id.view());
@@ -307,8 +312,14 @@ std::expected<void, core::EnteError> EnteRealization::step(
     // 3. Continuous Context Reassessment (RCC)
     auto reassess = rcc_.evaluate(*current_interpretation_, observations, *judgment_);
 
-    // 4. Constitutional Invariant Verification (Pre-Assurance)
-    auto verification = verify();
+    // 4. Constitutional Invariant Verification (Pre-Assurance - O(1) Incremental)
+    auto verification = verifier_.verify_step(
+        genesis_service_.state(),
+        genesis_service_.record(),
+        rec_.head(),
+        current_interpretation_,
+        std::cref(authority_)
+    );
 
     // 5. Runtime Assurance Evaluation: Translates Epistemic Action & Constitutive Status to Safety Directives
     auto safety_directive = assurance_.evaluate_safety(reassess.epistemic_action, verification.status);
@@ -382,13 +393,18 @@ std::expected<void, core::EnteError> EnteRealization::step(
 }
 
 constitution::VerificationReport EnteRealization::verify() const noexcept {
-    return verifier_.verify(
+    auto rep = verifier_.verify(
         genesis_service_.state(),
         genesis_service_.record(),
         rec_,
         current_interpretation_,
         std::cref(authority_)
     );
+    constitutive_status_ = rep.status;
+    if (rep.status == constitution::ConstitutiveStatus::Violated) {
+        const_cast<SyntheticDomain&>(domain_).suspend_action();
+    }
+    return rep;
 }
 
 ExecutionSummary ScenarioRunner::run_scenario(

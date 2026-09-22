@@ -7,6 +7,8 @@
 #include <optional>
 #include <span>
 
+#include <unordered_map>
+
 namespace ente::history {
 
 class RecoverableHistory {
@@ -26,6 +28,7 @@ public:
     [[nodiscard]] core::Digest head_digest() const noexcept;
 
     [[nodiscard]] std::optional<HistoryEvent> find_event(const core::EventId& id) const noexcept;
+    [[nodiscard]] bool contains_event(const core::EventId& id) const noexcept;
     
     // Create an event with auto-calculated digests
     [[nodiscard]] HistoryEvent create_event(
@@ -47,7 +50,10 @@ public:
     void tamper_event_payload_for_testing(size_t index, std::string_view corrupted_payload) noexcept;
 
 private:
+    void rebuild_index() noexcept;
+
     std::vector<HistoryEvent> events_;
+    std::unordered_map<std::string, size_t> event_index_;
 };
 
 } // namespace ente::history

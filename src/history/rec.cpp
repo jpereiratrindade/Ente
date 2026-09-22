@@ -80,6 +80,25 @@ HistoryEvent RecoverableHistory::create_event(
     return ev;
 }
 
+void RecoverableHistory::rebuild_index() noexcept {
+    event_index_.clear();
+    for (size_t i = 0; i < events_.size(); ++i) {
+        event_index_[events_[i].id.value] = i;
+    }
+}
+
+std::optional<HistoryEvent> RecoverableHistory::find_event(const core::EventId& id) const noexcept {
+    auto it = event_index_.find(id.value);
+    if (it != event_index_.end()) {
+        return events_[it->second];
+    }
+    return std::nullopt;
+}
+
+bool RecoverableHistory::contains_event(const core::EventId& id) const noexcept {
+    return event_index_.contains(id.value);
+}
+
 std::expected<void, core::EnteError> RecoverableHistory::append(HistoryEvent event) noexcept {
     // 1. Verify chronological progression
     if (!events_.empty()) {
@@ -108,20 +127,14 @@ std::expected<void, core::EnteError> RecoverableHistory::append(HistoryEvent eve
         return std::unexpected(core::EnteError::HistoryCorrupt);
     }
 
-    // 4. Verify RIT causal links exist in history
+    // 4. Verify RIT causal links exist in history via O(1) indexed lookup
     for (const auto& causal_id : event.causal_predecessors) {
-        bool found = false;
-        for (const auto& past_ev : events_) {
-            if (past_ev.id == causal_id) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
+        if (!contains_event(causal_id)) {
             return std::unexpected(core::EnteError::InvalidPredecessor);
         }
     }
 
+    event_index_[event.id.value] = events_.size();
     events_.push_back(std::move(event));
     return {};
 }
@@ -165,14 +178,6 @@ bool RecoverableHistory::verify_integrity() const noexcept {
     return true;
 }
 
-std::optional<HistoryEvent> RecoverableHistory::find_event(const core::EventId& id) const noexcept {
-    for (const auto& ev : events_) {
-        if (ev.id == id) {
-            return ev;
-        }
-    }
-    return std::nullopt;
-}
 
 void RecoverableHistory::tamper_event_payload_for_testing(size_t index, std::string_view corrupted_payload) noexcept {
     if (index < events_.size()) {

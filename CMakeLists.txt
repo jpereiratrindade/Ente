@@ -86,10 +86,15 @@ add_executable(test_chaos_invariants tests/test_chaos_invariants.cpp)
 target_link_libraries(test_chaos_invariants PRIVATE ente_core)
 add_test(NAME test_chaos_invariants COMMAND test_chaos_invariants)
 
-# Monte Carlo Stochastic Fuzzing & Statistical Pareto Benchmark (10,000 runs)
+# Monte Carlo Stochastic Fuzzing & Statistical Pareto Benchmark (5,000 runs)
 add_executable(test_monte_carlo_benchmark tests/test_monte_carlo_benchmark.cpp)
 target_link_libraries(test_monte_carlo_benchmark PRIVATE ente_core)
 add_test(NAME test_monte_carlo_benchmark COMMAND test_monte_carlo_benchmark)
+
+# REC Longevity & Scalability Stress Test (10,000 continuous stream)
+add_executable(test_rec_longevity tests/test_rec_longevity.cpp)
+target_link_libraries(test_rec_longevity PRIVATE ente_core)
+add_test(NAME test_rec_longevity COMMAND test_rec_longevity)
 
 # Case Lab 001: Autonomous Vehicle (KitKat Analog)
 add_executable(case_lab examples/case-lab/main.cpp)

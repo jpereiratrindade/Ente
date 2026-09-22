@@ -18,11 +18,11 @@ enum class StepNature : uint8_t {
 
 int main() {
     std::cout << "======================================================================\n";
-    std::cout << "       ENTE-0 MONTE CARLO STOCHASTIC BENCHMARK (200 RUNS)             \n";
+    std::cout << "       ENTE-0 MONTE CARLO STOCHASTIC BENCHMARK (5,000 RUNS)           \n";
     std::cout << "      Statistical Falsification & Baseline Pareto Dominance Test      \n";
     std::cout << "======================================================================\n\n";
 
-    constexpr size_t TOTAL_ITERATIONS = 200;
+    constexpr size_t TOTAL_ITERATIONS = 5000;
     ente::core::EventScopedPRNG rng("monte-carlo-fuzzing-seed-42");
 
     ente::realization::EnteRealization ente;

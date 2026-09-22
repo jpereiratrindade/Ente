@@ -48,10 +48,20 @@ class ConstitutionVerifier {
 public:
     ConstitutionVerifier() = default;
 
+    // Full historical audit (O(H)) from Genesis to HEAD
     [[nodiscard]] VerificationReport verify(
         const identity::IdentityState& identity,
         const std::optional<identity::GenesisRecord>& genesis,
         const history::RecoverableHistory& history,
+        const std::optional<epistemic::Interpretation>& current_interpretation,
+        std::optional<std::reference_wrapper<const authority::AuthorityLineage>> authority_lineage = std::nullopt
+    ) const noexcept;
+
+    // Incremental step-level verification (O(1)) for continuous operation
+    [[nodiscard]] VerificationReport verify_step(
+        const identity::IdentityState& identity,
+        const std::optional<identity::GenesisRecord>& genesis,
+        const history::HistoryEvent& latest_event,
         const std::optional<epistemic::Interpretation>& current_interpretation,
         std::optional<std::reference_wrapper<const authority::AuthorityLineage>> authority_lineage = std::nullopt
     ) const noexcept;
