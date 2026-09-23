@@ -1,14 +1,15 @@
 // =========================================================
 // ENTE OBSERVATORY — FIELD STATION CONTROLLER (app.js)
-// Active Epistemic Resolution & Ontological Continuity Engine
+// Factual Dynamic Projection Engine (ENTE-FACTUAL-PROJECTION-001)
 // =========================================================
 
 let currentTour = "A"; // "A" or "B"
 let currentAct = 1;
 let resolveDrySoil = true;
 let tourInterval = null;
+let factualData = null;
 
-// Tour A: Active Epistemic Resolution Cycle
+// Factual Tour A (Dry Soil outcome) — exact match with C++ engine
 const TOUR_A_ACTS = [
   {
     id: 1,
@@ -16,7 +17,7 @@ const TOUR_A_ACTS = [
     time: 0,
     eventType: "GENESIS",
     hardwareId: "RP-A921",
-    platform: "Raspberry Pi 4 Model B",
+    platform: "Raspberry Pi 5 (RP-A921)",
     soilA: 21,
     soilB: 22,
     soilAStatus: "DRY",
@@ -25,10 +26,10 @@ const TOUR_A_ACTS = [
     rain: "No Rain",
     rainStatus: "CLEAR",
     tank: 73,
-    interpretation: "Initial genesis established. Awaiting steady operational telemetry.",
+    interpretation: "ENTE field station identity anchored on Raspberry Pi A (RP-A921).",
     epistemicType: "Observed",
     rccState: "STABLE",
-    rccDesc: "Initial context established. Zero historical contradictions.",
+    rccDesc: "Initial context established on hardware RP-A921. Zero historical contradictions.",
     assurance: "SAFE_HOLD",
     assuranceDesc: "Genesis state initialized in SafeHold pending first nominal cycle.",
     valve: "CLOSED",
@@ -41,7 +42,7 @@ const TOUR_A_ACTS = [
     maintRec: "No maintenance required. All sensors within nominal tolerances.",
     showDiagBtn: false,
     quote: "Genesis: ENTE is born once on hardware RP-A921. Cryptographic identity is irrevocably anchored.",
-    hash: "156fab91f35319d6a3e3dc86a7b15b12b7b54236de39b115211fe608b0387d37",
+    hash: "61aafbdbcc1a68f5383883adbca5e9bc80343942691ba40b9409a3da08e0028e",
     nodeClass: "node-normal"
   },
   {
@@ -50,7 +51,7 @@ const TOUR_A_ACTS = [
     time: 1,
     eventType: "OBSERVATION & ACTION",
     hardwareId: "RP-A921",
-    platform: "Raspberry Pi 4 Model B",
+    platform: "Raspberry Pi 5 (RP-A921)",
     soilA: 21,
     soilB: 22,
     soilAStatus: "DRY",
@@ -59,10 +60,10 @@ const TOUR_A_ACTS = [
     rain: "No Rain",
     rainStatus: "CLEAR",
     tank: 73,
-    interpretation: "Soil moisture critically dry (21%). Reservoir sufficient. Irrigation required.",
+    interpretation: "Solo seco (<30%). Irrigação necessária no setor 1.",
     epistemicType: "Observed",
     rccState: "SUPPORTED",
-    rccDesc: "Observation coherently supports the hypothesis that irrigation is necessary.",
+    rccDesc: "Observation coherently supports the proposition that irrigation is necessary.",
     assurance: "ALLOW_ACTION",
     assuranceDesc: "Constitutive invariants verified. Action authorized under valid authority A0.",
     valve: "OPEN",
@@ -75,7 +76,7 @@ const TOUR_A_ACTS = [
     maintRec: "No maintenance required. Both probes agree on ground truth.",
     showDiagBtn: false,
     quote: "Nominal: Probes agree soil is dry. RCC validates epistemic support and Runtime Assurance opens the valve.",
-    hash: "6aa76090e3377848453cfacd5bae5db6184f428f6d273d493569790f359b432a",
+    hash: "a0755fb0b05bc739ee1b289116f7027984c0e728d8c21f4932672b6338448f56",
     nodeClass: "node-normal"
   },
   {
@@ -84,7 +85,7 @@ const TOUR_A_ACTS = [
     time: 2,
     eventType: "PERTURBATION & SAFE_HOLD",
     hardwareId: "RP-A921",
-    platform: "Raspberry Pi 4 Model B",
+    platform: "Raspberry Pi 5 (RP-A921)",
     soilA: 20,
     soilB: 85,
     soilAStatus: "DRY",
@@ -96,20 +97,20 @@ const TOUR_A_ACTS = [
     interpretation: "Evidential conflict: Probe A (20% DRY) directly contradicts Probe B (85% WET).",
     epistemicType: "Contradictory",
     rccState: "WEAKENED",
-    rccDesc: "Contradictory evidence invalidates prior justification. Ground truth is uncertain.",
+    rccDesc: "Contradictory evidence invalidates prior justification. ENTE issues EvidenceRequest.",
     assurance: "SAFE_HOLD",
-    assuranceDesc: "Action immediately withheld. ENTE avoids acting under epistemic uncertainty.",
+    assuranceDesc: "SafeHold strictly enforced. Valve immediately locked closed by Runtime Assurance.",
     valve: "CLOSED",
     flowRate: "0.0 L/min",
     sectorState: "SAFE_HOLD",
     diagStatus: "DISCRIMINATING_EVIDENCE_REQUIRED",
-    diagInstruction: "ENTE cannot arbitrate between Probe A and Probe B. Active diagnostic investigation required!",
+    diagInstruction: "ENTE EpistemicAction::SeekEvidence issued. Discriminant diagnostic observation required.",
     healthA: "UNKNOWN",
     healthB: "UNKNOWN",
-    maintRec: "Awaiting diagnostic self-test to isolate suspect sensor.",
+    maintRec: "Active diagnostic required to isolate suspect probe.",
     showDiagBtn: true,
-    quote: "Contradiction: ENTE does not guess which sensor is right. It issues SafeHold and demands discriminating evidence.",
-    hash: "0ec504d9fb258808ccac8ba83e2bed89b3993bbb8c9958d462c9e8e67e3bcc13",
+    quote: "SafeHold: When justification is lost, ENTE halts action and requests discriminating evidence.",
+    hash: "86f1a38b13dff8c208bcbbc99b421b098385831dac507406bcf343fe94bb648b",
     nodeClass: "node-warning"
   },
   {
@@ -118,21 +119,21 @@ const TOUR_A_ACTS = [
     time: 3,
     eventType: "DIAGNOSTIC_OBSERVATION",
     hardwareId: "RP-A921",
-    platform: "Raspberry Pi 4 Model B",
+    platform: "Raspberry Pi 5 (RP-A921)",
     soilA: 20,
     soilB: 85,
-    soilAStatus: "DRY",
-    soilBStatus: "WET",
+    soilAStatus: "HEALTHY",
+    soilBStatus: "DRIFT",
     soilCVal: "22% (REF DRY)",
     rain: "No Rain",
     rainStatus: "CLEAR",
     tank: 73,
-    interpretation: "Discriminating evidence ingested: Reference Probe C and Impedance Self-Test isolated suspect probe.",
-    epistemicType: "Derived",
+    interpretation: "Reference Probe C (22% DRY) and Self-Test confirm Probe B drift. Evidence resolved.",
+    epistemicType: "Observed",
     rccState: "SUPPORTED",
-    rccDesc: "Diagnostic evidence successfully discriminated the ground truth from sensor drift.",
+    rccDesc: "Ground truth resolved via Reference Probe C. Discrimination successful.",
     assurance: "SAFE_HOLD",
-    assuranceDesc: "Diagnostic cycle complete. Awaiting reinterpreted operational policy.",
+    assuranceDesc: "SafeHold maintained until formal reinterpretation is adopted by the ENTE.",
     valve: "CLOSED",
     flowRate: "0.0 L/min",
     sectorState: "SAFE_HOLD",
@@ -142,9 +143,9 @@ const TOUR_A_ACTS = [
     healthB: "CALIBRATION_DRIFT",
     maintRec: "Flag Probe B for calibration/replacement. Isolate reading from fused telemetry.",
     showDiagBtn: false,
-    quote: "Active Investigation: Field Station sampled Reference Probe C and ran self-tests. Ground truth was uncovered.",
-    hash: "3b198fa4c02ee9d1a6e78891cb0984f428f6d273d493569790f359b432a11009",
-    nodeClass: "node-diag"
+    quote: "Investigation: Domain answers ENTE EvidenceRequest with reference ground truth and self-test.",
+    hash: "9eca4e4564d6241dd223c54ca18dc4cf5e580053dfc864a6477f80a10b74cb70",
+    nodeClass: "node-normal"
   },
   {
     id: 5,
@@ -152,19 +153,19 @@ const TOUR_A_ACTS = [
     time: 4,
     eventType: "REINTERPRETATION & RESUMPTION",
     hardwareId: "RP-A921",
-    platform: "Raspberry Pi 4 Model B",
+    platform: "Raspberry Pi 5 (RP-A921)",
     soilA: 20,
     soilB: 85,
     soilAStatus: "DRY (OK)",
     soilBStatus: "ISOLATED",
-    soilCVal: "22% (ACTIVE REF)",
+    soilCVal: "22% (OK)",
     rain: "No Rain",
     rainStatus: "CLEAR",
     tank: 73,
-    interpretation: "Ground truth dry soil (21%) confirmed. Irrigation justified. Resuming nominal operation.",
+    interpretation: "Solo seco confirmado via Sonda C (22%). Sonda B isolada. Irrigação justificada.",
     epistemicType: "Observed",
     rccState: "SUPPORTED",
-    rccDesc: "Fused healthy evidence (Probe A + Ref C) provides coherent epistemic justification.",
+    rccDesc: "Reinterpretation validated. High coherence between isolated sensors and ground truth.",
     assurance: "ALLOW_ACTION",
     assuranceDesc: "Irrigation authorized. Valve opened with verifiable provenance.",
     valve: "OPEN",
@@ -174,15 +175,15 @@ const TOUR_A_ACTS = [
     diagInstruction: "Suspect sensor isolated. Operational policy reinterpreted with active justification.",
     healthA: "HEALTHY",
     healthB: "ISOLATED",
-    maintRec: "Maintenance ticket #402 opened: Recalibrate Probe B on Sector 1.",
+    maintRec: "Schedule field replacement for Probe B. Sector operating securely on Probe A + C.",
     showDiagBtn: false,
-    quote: "Reinterpretation: Doubt resolved through active evidence. ENTE returns to action with epistemically justified ground truth.",
-    hash: "7f4c10be39df4812aa8910be39df4812b7b54236de39b115211fe608b0387d37",
-    nodeClass: "node-normal"
+    quote: "Resumption: ENTE did not just stop — it actively resolved uncertainty and resumed justified action.",
+    hash: "ff997479f4a384e44e3e7be88e706ff388b709e3cb6cc177b2320799a76cd0ae",
+    nodeClass: "node-success"
   }
 ];
 
-// Tour B: Ontological Continuity (RIT & Crash Recovery)
+// Factual Tour B (Ontological Continuity Cycle) — exact match with C++ engine
 const TOUR_B_ACTS = [
   {
     id: 1,
@@ -190,7 +191,7 @@ const TOUR_B_ACTS = [
     time: 0,
     eventType: "GENESIS",
     hardwareId: "RP-A921",
-    platform: "Raspberry Pi 4 Model B",
+    platform: "Raspberry Pi 5 (RP-A921)",
     soilA: 21,
     soilB: 22,
     soilAStatus: "DRY",
@@ -202,20 +203,20 @@ const TOUR_B_ACTS = [
     interpretation: "Initial genesis established on substrate RP-A921.",
     epistemicType: "Observed",
     rccState: "STABLE",
-    rccDesc: "Zero historical mutations.",
+    rccDesc: "Station born on RP-A921. Cryptographic identity established.",
     assurance: "SAFE_HOLD",
     assuranceDesc: "Genesis anchor initialized.",
     valve: "CLOSED",
     flowRate: "0.0 L/min",
     sectorState: "IDLE",
     diagStatus: "IDLE",
-    diagInstruction: "Station initialized on Raspberry Pi 4 (RP-A921).",
+    diagInstruction: "Station initialized on Raspberry Pi 5 (RP-A921).",
     healthA: "HEALTHY",
     healthB: "HEALTHY",
     maintRec: "Substrate anchor registered.",
     showDiagBtn: false,
     quote: "Genesis: Unique beginning. Identity is irrevocably anchored.",
-    hash: "156fab91f35319d6a3e3dc86a7b15b12b7b54236de39b115211fe608b0387d37",
+    hash: "61aafbdbcc1a68f5383883adbca5e9bc80343942691ba40b9409a3da08e0028e",
     nodeClass: "node-normal"
   },
   {
@@ -224,7 +225,7 @@ const TOUR_B_ACTS = [
     time: 1,
     eventType: "PERTURBATION & SAFE_HOLD",
     hardwareId: "RP-A921",
-    platform: "Raspberry Pi 4 Model B",
+    platform: "Raspberry Pi 5 (RP-A921)",
     soilA: 20,
     soilB: 85,
     soilAStatus: "DRY",
@@ -249,7 +250,7 @@ const TOUR_B_ACTS = [
     maintRec: "SafeHold engaged prior to migration.",
     showDiagBtn: false,
     quote: "SafeHold: Valve closed due to uncertainty. State committed to REC ledger.",
-    hash: "0ec504d9fb258808ccac8ba83e2bed89b3993bbb8c9958d462c9e8e67e3bcc13",
+    hash: "bd4092b71891c3adcd2abb0dbab2f2b6ab6be5397824672683fb6273ded8d3ec",
     nodeClass: "node-warning"
   },
   {
@@ -258,7 +259,7 @@ const TOUR_B_ACTS = [
     time: 2,
     eventType: "MATERIAL_TRANSFORMATION",
     hardwareId: "RP-B104",
-    platform: "Raspberry Pi 5 Rev 1.0",
+    platform: "Raspberry Pi 5 (RP-B104)",
     soilA: 20,
     soilB: 85,
     soilAStatus: "DRY",
@@ -267,7 +268,7 @@ const TOUR_B_ACTS = [
     rain: "No Rain",
     rainStatus: "CLEAR",
     tank: 73,
-    interpretation: "Material substrate migrated from RP-A921 to RP-B104 under RIT continuity.",
+    interpretation: "RIT Migration: Raspberry Pi A -> Raspberry Pi B. Process and hardware changed, identity preserved.",
     epistemicType: "Contradictory",
     rccState: "WEAKENED",
     rccDesc: "Hardware replaced, yet identity, authority and contradictory epistemic state persist.",
@@ -282,8 +283,8 @@ const TOUR_B_ACTS = [
     healthB: "UNKNOWN",
     maintRec: "RP-B104 authenticated as legitimate material anchor.",
     showDiagBtn: false,
-    quote: "Theseus Principle (RIT): The physical computer changed, but the ENTE trajectory and SafeHold remain identical.",
-    hash: "0fd03b103bdd4a50080fbba7bcbb85834265e1f3615069b9e06c6cd564efe2eb",
+    quote: "Theseus Principle (RIT): Physical hardware changed, but the ENTE trajectory and SafeHold remain identical.",
+    hash: "96500c483e297a3732b736624d35f002fde03e3cf9354238cb82bc316f6bd75d",
     nodeClass: "node-migration"
   },
   {
@@ -292,7 +293,7 @@ const TOUR_B_ACTS = [
     time: 3,
     eventType: "COLD_RECOVERY",
     hardwareId: "RP-B104",
-    platform: "Raspberry Pi 5 Rev 1.0",
+    platform: "Raspberry Pi 5 (RP-B104)",
     soilA: 20,
     soilB: 85,
     soilAStatus: "DRY",
@@ -301,23 +302,23 @@ const TOUR_B_ACTS = [
     rain: "No Rain",
     rainStatus: "CLEAR",
     tank: 73,
-    interpretation: "Cold restart reconstructed 100% of trajectory from REC ledger. SafeHold active.",
+    interpretation: "Process killed and restarted from disk storage. 100% of trajectory restored. SafeHold preserved.",
     epistemicType: "Contradictory",
     rccState: "WEAKENED",
-    rccDesc: "Reconstituted historical state confirms unresolved sensor conflict.",
+    rccDesc: "Historical REC validated from disk. State reconstituated without gaps.",
     assurance: "SAFE_HOLD",
-    assuranceDesc: "New process did not forget prior perturbation. Valve remains closed.",
+    assuranceDesc: "SafeHold active post-recovery. Invariants C1..C14 verified.",
     valve: "CLOSED",
     flowRate: "0.0 L/min",
     sectorState: "SAFE_HOLD",
-    diagStatus: "RECOVERED_SAFELY",
-    diagInstruction: "Volatile memory lost in crash. Ledger replayed from Genesis to HEAD.",
+    diagStatus: "RECOVERED_COLD",
+    diagInstruction: "Ledger validated from cold storage file field_station_rec.log.",
     healthA: "UNKNOWN",
     healthB: "UNKNOWN",
-    maintRec: "Cold recovery audited 100% of hash-chain. SafeHold preserved.",
+    maintRec: "Cold recovery certified. No second genesis possible.",
     showDiagBtn: false,
-    quote: "Cold Recovery: Process crashed and restarted from cold memory. History was audited and SafeHold was not lost.",
-    hash: "0fd03b103bdd4a50080fbba7bcbb85834265e1f3615069b9e06c6cd564efe2eb",
+    quote: "Cold Recovery: Total power loss. Process restarted from cold storage file, verifying C1..C14.",
+    hash: "96500c483e297a3732b736624d35f002fde03e3cf9354238cb82bc316f6bd75d",
     nodeClass: "node-warning"
   }
 ];
@@ -347,6 +348,21 @@ function setResolutionOutcome(isDry) {
   document.getElementById("btn-outcome-dry").classList.toggle("active", isDry);
   document.getElementById("btn-outcome-wet").classList.toggle("active", !isDry);
 
+  // If factual dynamic data is loaded, apply appropriate branch
+  if (factualData && factualData.tour_a_wet && !isDry) {
+    const wetActs = factualData.tour_a_wet;
+    if (wetActs.length >= 5) {
+      TOUR_A_ACTS[3].hash = wetActs[3].hash;
+      TOUR_A_ACTS[4].hash = wetActs[4].hash;
+    }
+  } else if (factualData && factualData.tour_a_dry && isDry) {
+    const dryActs = factualData.tour_a_dry;
+    if (dryActs.length >= 5) {
+      TOUR_A_ACTS[3].hash = dryActs[3].hash;
+      TOUR_A_ACTS[4].hash = dryActs[4].hash;
+    }
+  }
+
   // Update Tour A Acts 4 and 5 dynamically
   if (isDry) {
     TOUR_A_ACTS[3].soilCVal = "22% (REF DRY)";
@@ -356,7 +372,7 @@ function setResolutionOutcome(isDry) {
     TOUR_A_ACTS[3].healthB = "CALIBRATION_DRIFT";
     TOUR_A_ACTS[3].maintRec = "Flag Probe B for calibration/replacement. Isolate reading from fused telemetry.";
 
-    TOUR_A_ACTS[4].interpretation = "Ground truth dry soil (21%) confirmed. Irrigation justified. Resuming nominal operation.";
+    TOUR_A_ACTS[4].interpretation = "Solo seco confirmado via Sonda C (22%). Sonda B isolada. Irrigação justificada.";
     TOUR_A_ACTS[4].valve = "OPEN";
     TOUR_A_ACTS[4].flowRate = "18.5 L/min";
     TOUR_A_ACTS[4].sectorState = "IRRIGATING";
@@ -376,34 +392,31 @@ function setResolutionOutcome(isDry) {
     TOUR_A_ACTS[3].healthB = "HEALTHY";
     TOUR_A_ACTS[3].maintRec = "Flag Probe A for calibration/replacement. Isolate reading from fused telemetry.";
 
-    TOUR_A_ACTS[4].interpretation = "Ground truth wet soil (83%) confirmed. Irrigation NOT required. Holding valve closed with justification.";
+    TOUR_A_ACTS[4].interpretation = "Solo úmido confirmado via Sonda C (82%). Sonda A isolada. Irrigação desnecessária.";
     TOUR_A_ACTS[4].valve = "CLOSED";
     TOUR_A_ACTS[4].flowRate = "0.0 L/min";
-    TOUR_A_ACTS[4].sectorState = "SAFE_HOLD";
+    TOUR_A_ACTS[4].sectorState = "IDLE";
     TOUR_A_ACTS[4].assurance = "SAFE_HOLD";
-    TOUR_A_ACTS[4].assuranceDesc = "Valve held closed by ground-truth justification, not uncertainty.";
+    TOUR_A_ACTS[4].assuranceDesc = "Irrigation hold certified by ground truth. Valve kept closed with justification.";
     TOUR_A_ACTS[4].diagStatus = "RESOLVED (CALIBRATE_A)";
-    TOUR_A_ACTS[4].diagInstruction = "Suspect sensor isolated. Soil is wet, valve remains closed with epistemic certainty.";
+    TOUR_A_ACTS[4].diagInstruction = "Suspect sensor isolated. Hold state actively justified by ground truth.";
     TOUR_A_ACTS[4].healthA = "ISOLATED";
     TOUR_A_ACTS[4].healthB = "HEALTHY";
     TOUR_A_ACTS[4].soilAStatus = "ISOLATED";
     TOUR_A_ACTS[4].soilBStatus = "WET (OK)";
   }
 
-  if (currentTour === "A") {
-    setAct(currentAct);
-  }
+  setAct(currentAct);
 }
 
 function renderActButtons() {
-  const container = document.getElementById("act-buttons-container");
+  const container = document.getElementById("act-buttons");
   container.innerHTML = "";
 
   const acts = getCurrentActList();
   acts.forEach(act => {
     const btn = document.createElement("button");
-    btn.id = `btn-act-${act.id}`;
-    btn.className = `btn-demo ${act.id === currentAct ? "active" : ""}`;
+    btn.className = `btn ${act.id === currentAct ? "btn-primary" : "btn-secondary"}`;
     btn.textContent = act.name;
     btn.onclick = () => setAct(act.id);
     container.appendChild(btn);
@@ -411,89 +424,61 @@ function renderActButtons() {
 }
 
 function setAct(actId) {
-  const acts = getCurrentActList();
-  const act = acts.find(a => a.id === actId);
-  if (!act) return;
-
   currentAct = actId;
-
-  // Handle Blackout simulation on Tour B Act 4
-  if (currentTour === "B" && actId === 4) {
-    const blackout = document.getElementById("blackout-screen");
-    blackout.classList.remove("hidden");
-    setTimeout(() => {
-      blackout.classList.add("hidden");
-      renderAct(act);
-    }, 1200);
-  } else {
-    renderAct(act);
-  }
+  renderActButtons();
+  updateDisplay();
 }
 
-function renderAct(act) {
-  // Update Buttons Active State
-  document.querySelectorAll(".btn-demo").forEach(btn => btn.classList.remove("active"));
-  const activeBtn = document.getElementById(`btn-act-${act.id}`);
-  if (activeBtn) activeBtn.classList.add("active");
+function updateDisplay() {
+  const acts = getCurrentActList();
+  const act = acts[currentAct - 1];
+  if (!act) return;
 
-  // Header Substrate
-  document.getElementById("meta-hardware").textContent = `${act.platform.split(" ")[0]} (${act.hardwareId})`;
+  // Header badges
+  document.getElementById("badge-hardware-id").textContent = `Hardware: ${act.hardwareId}`;
+  document.getElementById("val-logical-time").textContent = `${act.time} ticks`;
+  document.getElementById("val-sha256-head").textContent = `${act.hash.substring(0, 16)}…`;
 
   // Column 1: Sensors
   document.getElementById("val-soil-a").textContent = `${act.soilA}%`;
-  document.getElementById("badge-soil-a").textContent = act.soilAStatus;
-  document.getElementById("badge-soil-a").className = `reading-status ${act.soilAStatus.includes("DRY") ? "status-dry" : "status-wet"}`;
-  document.getElementById("fill-soil-a").style.width = `${act.soilA}%`;
-
   document.getElementById("val-soil-b").textContent = `${act.soilB}%`;
-  document.getElementById("badge-soil-b").textContent = act.soilBStatus;
-  document.getElementById("badge-soil-b").className = `reading-status ${act.soilBStatus.includes("DRY") ? "status-dry" : "status-wet"}`;
-  document.getElementById("fill-soil-b").style.width = `${act.soilB}%`;
+  document.getElementById("status-soil-a").textContent = act.soilAStatus;
+  document.getElementById("status-soil-b").textContent = act.soilBStatus;
+  
+  const pillA = document.getElementById("status-soil-a");
+  const pillB = document.getElementById("status-soil-b");
+  pillA.className = `status-pill ${act.soilAStatus.includes("DRY") ? "status-pill-warning" : act.soilAStatus.includes("ISOLATED") ? "status-pill-danger" : "status-pill-green"}`;
+  pillB.className = `status-pill ${act.soilBStatus.includes("WET") ? "status-pill-green" : act.soilBStatus.includes("ISOLATED") ? "status-pill-danger" : "status-pill-warning"}`;
 
-  // Highlight conflict in sensor cards
-  const cardA = document.getElementById("card-sensor-a");
-  const cardB = document.getElementById("card-sensor-b");
-  if (act.soilAStatus !== act.soilBStatus && !act.soilAStatus.includes("OK") && !act.soilBStatus.includes("OK")) {
-    cardA.classList.add("conflict-alert");
-    cardB.classList.add("conflict-alert");
-  } else {
-    cardA.classList.remove("conflict-alert");
-    cardB.classList.remove("conflict-alert");
-  }
+  document.getElementById("val-rain").textContent = act.rain;
+  document.getElementById("status-rain").textContent = act.rainStatus;
+  document.getElementById("val-tank").textContent = `${act.tank}%`;
 
-  // Column 2: ENTE Brain
-  document.getElementById("val-interpretation").textContent = `"${act.interpretation}"`;
-  const typePill = document.getElementById("val-epistemic-type");
-  typePill.textContent = act.epistemicType;
-  if (act.epistemicType === "Observed") {
-    typePill.className = "mono status-pill status-pill-green";
-  } else if (act.epistemicType === "Contradictory") {
-    typePill.className = "mono status-pill status-pill-danger";
-  } else {
-    typePill.className = "mono status-pill status-pill-warning";
-  }
+  // Column 2: Cognitive Interpretation & RCC
+  document.getElementById("val-interpretation").textContent = act.interpretation;
+  document.getElementById("val-epistemic-type").textContent = act.epistemicType;
 
-  // RCC
-  const rccBadge = document.getElementById("badge-rcc");
-  rccBadge.textContent = act.rccState;
-  rccBadge.className = `rcc-badge ${act.rccState === "SUPPORTED" ? "rcc-supported" : "rcc-weakened"}`;
-  document.getElementById("desc-rcc").textContent = act.rccDesc;
+  const rccPill = document.getElementById("val-rcc-state");
+  rccPill.textContent = act.rccState;
+  rccPill.className = `status-pill ${act.rccState === "SUPPORTED" || act.rccState === "STABLE" ? "status-pill-green" : act.rccState === "WEAKENED" ? "status-pill-warning" : "status-pill-danger"}`;
 
-  // Runtime Assurance
-  const assBox = document.getElementById("box-assurance");
-  assBox.textContent = act.assurance;
-  assBox.className = `directive-box ${act.assurance === "ALLOW_ACTION" ? "directive-allow" : "directive-hold"}`;
-  document.getElementById("desc-assurance").textContent = act.assuranceDesc;
+  document.getElementById("rcc-description").textContent = act.rccDesc;
 
-  // Column 3: Field Action & Actuator
-  const valveIndicator = document.getElementById("indicator-valve");
-  const valveLabel = document.getElementById("label-valve");
+  // Column 3: Runtime Assurance & Actuators
+  const assurancePill = document.getElementById("val-assurance-directive");
+  assurancePill.textContent = act.assurance;
+  assurancePill.className = `status-pill ${act.assurance === "ALLOW_ACTION" ? "status-pill-green" : "status-pill-warning"}`;
+
+  document.getElementById("assurance-description").textContent = act.assuranceDesc;
+
+  const valveIndicator = document.getElementById("valve-indicator");
+  const valveLabel = document.getElementById("valve-label");
   const waterSpray = document.getElementById("water-spray");
-  const sectorState = document.getElementById("metric-sector-state");
+  const sectorState = document.getElementById("val-sector-state");
 
   if (act.valve === "OPEN") {
     valveIndicator.className = "valve-indicator valve-open";
-    valveLabel.textContent = "VALVE OPEN";
+    valveLabel.textContent = "VALVE OPEN (IRRIGATING)";
     waterSpray.classList.add("active");
     sectorState.textContent = "IRRIGATING";
     sectorState.className = "status-pill status-pill-green";
@@ -623,7 +608,21 @@ function toggleAutoTour() {
   }
 }
 
+// Dynamic factual JSON loader
+async function loadFactualEvents() {
+  try {
+    const res = await fetch('./events.json');
+    if (res.ok) {
+      factualData = await res.json();
+      console.log("[ENTE Observatory] Factual events.json loaded dynamically from C++ realization.");
+    }
+  } catch (e) {
+    console.info("[ENTE Observatory] Direct file access detected. Using embedded C++ factual state.");
+  }
+}
+
 // Initialize
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
+  await loadFactualEvents();
   switchTour("A");
 });

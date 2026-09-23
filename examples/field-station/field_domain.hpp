@@ -119,6 +119,12 @@ public:
         }
     }
 
+    void apply_action(ValveAction a) noexcept {
+        suspended_ = false;
+        action_ = a;
+        state_ = (a == ValveAction::OpenValve ? IrrigationState::Irrigating : IrrigationState::Idle);
+    }
+
     void apply_safety_directive(ente::assurance::SafetyDirective directive) noexcept {
         if (directive == ente::assurance::SafetyDirective::SafeHold ||
             directive == ente::assurance::SafetyDirective::EmergencyStop ||
@@ -128,8 +134,6 @@ public:
             state_ = IrrigationState::SafeHold;
         } else {
             suspended_ = false;
-            action_ = ValveAction::OpenValve;
-            state_ = IrrigationState::Irrigating;
         }
     }
 

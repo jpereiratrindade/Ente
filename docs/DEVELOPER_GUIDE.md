@@ -47,13 +47,14 @@ Para que um tipo de domínio possa ser governado pelo ENTE, ele deve satisfazer 
 #include <ente/domain/generic_agent.hpp>
 
 template <typename T>
-concept OperationalDomainConcept = requires(T domain, ente::assurance::SafetyDirective directive) {
+concept OperationalDomainConcept = requires(T domain, typename T::ActionType action, ente::assurance::SafetyDirective directive) {
     typename T::ActionType;
     typename T::StateType;
     { domain.active_action() } -> std::same_as<typename T::ActionType>;
     { domain.current_state() } -> std::same_as<typename T::StateType>;
     { domain.is_suspended() } -> std::same_as<bool>;
     { domain.apply_safety_directive(directive) } noexcept;
+    { domain.apply_action(action) } noexcept;
     { domain.safe_hold_action() } -> std::same_as<typename T::ActionType>;
 };
 ```
@@ -85,7 +86,7 @@ enum class DroneAction {
 ```
 
 ### Passo 2: Implementar a Classe de Domínio
-Crie a classe que encapsula o comportamento do seu domínio e responda às diretivas do ENTE:
+Crie a classe que encapsula o comportamento do seu domínio, separando a execução da ação proposta da aplicação de diretivas de segurança:
 
 ```cpp
 class DroneNavigationDomain {
@@ -112,13 +113,22 @@ public:
         return DroneAction::LandImmediately;
     }
 
+    // Executa a ação proposta quando autorizada pelo ENTE
+    void apply_action(DroneAction action) noexcept {
+        suspended_ = false;
+        active_action_ = action;
+        current_state_ = (action == DroneAction::NavigateWaypoints ? DroneState::Navigating : DroneState::Hovering);
+    }
+
+    // Aplica diretiva de salvaguarda emitida pelo Runtime Assurance do ENTE
     void apply_safety_directive(ente::assurance::SafetyDirective directive) noexcept {
         switch (directive) {
             case ente::assurance::SafetyDirective::AllowAction:
                 suspended_ = false;
                 break;
             case ente::assurance::SafetyDirective::SafeHold:
-            case ente::assurance::SafetyDirective::Intervene:
+            case ente::assurance::SafetyDirective::EmergencyStop:
+            case ente::assurance::SafetyDirective::DegradePerformance:
                 suspended_ = true;
                 active_action_ = safe_hold_action();
                 current_state_ = DroneState::EmergencyLanding;
@@ -198,33 +208,58 @@ std::vector<ente::epistemic::Observation> collect_drone_telemetry(
 #include <iostream>
 
 int main() {
-    // 1. Instancia o agente mediado por ENTE-0
-    ente::domain::GenericAgentWithEnte<DroneNavigationDomain> agent("drone-alpha-01");
+    // 1. Instancia o agente mediado por ENTE-0 ancorado em Hardware Root of Trust
+    ente::identity::MaterialAnchor anchor{
+        .id = ente::identity::MaterialAnchorId("DRONE-HW-01"),
+        .type = ente::identity::SubstrateType::TpmProtectedDevice,
+        .hardware_fingerprint = "fp-tpm2-drone-nvram-01"
+    };
+
+    ente::domain::GenericAgentWithEnte<DroneNavigationDomain> agent(
+        "drone-alpha-01",
+        DroneNavigationDomain{},
+        anchor
+    );
 
     ente::core::LogicalTime current_time{1000};
 
     // Cenário A: Telemetria Nominal
     auto obs_nominal = collect_drone_telemetry(15.2, true, true);
-    DroneAction action = agent.decide_action(
+    ente::realization::StepContext ctx_nominal{
+        .subject = "drone_flight_safety",
+        .proposition = "Condições aerodinâmicas e navegação GPS nominais",
+        .step_desc = "step_01_nominal_flight"
+    };
+
+    auto outcome_nominal = agent.decide_action_detailed(
         current_time++,
         obs_nominal,
         DroneAction::NavigateWaypoints,
-        "step_01_nominal_flight"
+        ctx_nominal
     );
-    // Retorna: DroneAction::NavigateWaypoints (Nominal)
+    // outcome_nominal.executed_action == DroneAction::NavigateWaypoints (Nominal)
+    // outcome_nominal.is_safe_hold == false
 
-    // Cenário B: Injeção de Incerteza Crítica (GPS desconhecido + perda de fluxo óptico)
+    // Cenário B: Injeção de Incerteza Crítica (GPS sem lock + perda de fluxo óptico)
     auto obs_anomalia = collect_drone_telemetry(15.2, false, false);
-    DroneAction action_segura = agent.decide_action(
+    ente::realization::StepContext ctx_anomalia{
+        .subject = "drone_flight_safety",
+        .proposition = "Condições aerodinâmicas e navegação GPS nominais",
+        .step_desc = "step_02_sensor_degradation"
+    };
+
+    auto outcome_seguro = agent.decide_action_detailed(
         current_time++,
         obs_anomalia,
         DroneAction::NavigateWaypoints,
-        "step_02_sensor_degradation"
+        ctx_anomalia
     );
-    // Retorna: DroneAction::LandImmediately (SafeHold acionado automaticamente!)
+    // outcome_seguro.executed_action == DroneAction::LandImmediately (SafeHold acionado automaticamente!)
+    // outcome_seguro.is_safe_hold == true
+    // outcome_seguro.trace.evidence_request presente para resolver incerteza
 
-    // 2. Auditoria Constitutiva Completa do Histórico
-    auto verifier_res = agent.ente().verify_all();
+    // 2. Auditoria Constitutiva Completa do Histórico (C1..C14)
+    auto verifier_res = agent.ente().verify();
     if (verifier_res.is_valid()) {
         std::cout << "Auditoria REC aprovada com 100% de integridade causal.\n";
     }

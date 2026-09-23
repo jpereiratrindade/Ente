@@ -3,6 +3,7 @@
 #include "ente/core/types.hpp"
 #include "ente/epistemic/interpretation.hpp"
 #include "ente/epistemic/observation.hpp"
+#include "ente/epistemic/evidence_request.hpp"
 #include "ente/judgment/engine.hpp"
 #include "ente/rcc/actions.hpp"
 #include <vector>
@@ -41,6 +42,7 @@ struct ReassessmentResult {
     RCCState state_after;
     std::vector<core::EvidenceId> challenging_evidence;
     std::string reason;
+    std::optional<epistemic::EvidenceRequest> evidence_request;
 };
 
 class ContextReassessment {

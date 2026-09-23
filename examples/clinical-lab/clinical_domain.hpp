@@ -59,6 +59,12 @@ public:
     [[nodiscard]] bool is_suspended() const noexcept { return suspended_; }
     [[nodiscard]] static constexpr InfusionAction safe_hold_action() noexcept { return InfusionAction::HoldTitration; }
 
+    void apply_action(InfusionAction a) noexcept {
+        suspended_ = false;
+        action_ = a;
+        state_ = (a == InfusionAction::TitrateUp ? PumpState::Titrating : PumpState::Stopped);
+    }
+
     void apply_safety_directive(ente::assurance::SafetyDirective directive) noexcept {
         if (directive == ente::assurance::SafetyDirective::SafeHold ||
             directive == ente::assurance::SafetyDirective::EmergencyStop ||
@@ -68,8 +74,6 @@ public:
             state_ = PumpState::Holding;
         } else {
             suspended_ = false;
-            action_ = InfusionAction::TitrateUp;
-            state_ = PumpState::Titrating;
         }
     }
 

@@ -14,7 +14,8 @@ ReassessmentResult ContextReassessment::evaluate(
         .epistemic_action = EpistemicAction::Keep,
         .state_after = RCCState::Stable,
         .challenging_evidence = {},
-        .reason = judgment.rationale
+        .reason = judgment.rationale,
+        .evidence_request = std::nullopt
     };
 
     switch (judgment.compatibility) {
@@ -36,28 +37,48 @@ ReassessmentResult ContextReassessment::evaluate(
             res.state_after = RCCState::Suspended;
             break;
 
-        case judgment::CompatibilityResult::Contradictory:
+        case judgment::CompatibilityResult::Contradictory: {
             current_interpretation.status = epistemic::InterpretationStatus::Contradicted;
+            std::vector<std::string> conflict_sources;
             for (const auto& obs : new_evidence) {
                 current_interpretation.challenging_evidence.push_back(obs.id);
                 res.challenging_evidence.push_back(obs.id);
+                conflict_sources.push_back(obs.subject);
             }
             state_ = RCCState::EvidenceSeeking;
             res.epistemic_action = EpistemicAction::SeekEvidence;
             res.state_after = RCCState::EvidenceSeeking;
+            res.evidence_request = epistemic::EvidenceRequest{
+                .subject = current_interpretation.subject,
+                .purpose = epistemic::EvidenceDemandPurpose::DiscriminateContradiction,
+                .conflicting_sources = std::move(conflict_sources),
+                .suggested_discriminator = "discriminating_reference_probe_or_impedance_test",
+                .demand_summary = "Contradiction detected in active observations. Discriminating evidence required."
+            };
             break;
+        }
 
         case judgment::CompatibilityResult::InsufficientEvidence:
-        case judgment::CompatibilityResult::Unknown:
+        case judgment::CompatibilityResult::Unknown: {
             current_interpretation.status = epistemic::InterpretationStatus::Unknown;
+            std::vector<std::string> sources;
             for (const auto& obs : new_evidence) {
                 current_interpretation.challenging_evidence.push_back(obs.id);
                 res.challenging_evidence.push_back(obs.id);
+                sources.push_back(obs.subject);
             }
             state_ = RCCState::Reassessing;
             res.epistemic_action = EpistemicAction::SeekEvidence;
             res.state_after = RCCState::Reassessing;
+            res.evidence_request = epistemic::EvidenceRequest{
+                .subject = current_interpretation.subject,
+                .purpose = epistemic::EvidenceDemandPurpose::ResolveUnknown,
+                .conflicting_sources = std::move(sources),
+                .suggested_discriminator = "telemetry_refresh_or_diagnostic_probe",
+                .demand_summary = "Epistemic state is Unknown/Insufficient. Resolving evidence required."
+            };
             break;
+        }
     }
 
     return res;

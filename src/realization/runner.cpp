@@ -263,10 +263,23 @@ void EnteRealization::adopt_interpretation(epistemic::Interpretation new_interp)
     }
 }
 
-std::expected<void, core::EnteError> EnteRealization::step(
+std::expected<DecisionTrace, core::EnteError> EnteRealization::step(
     core::LogicalTime time,
     const std::vector<epistemic::Observation>& observations,
-    [[maybe_unused]] std::string_view step_desc
+    std::string_view step_desc
+) {
+    StepContext ctx{
+        .subject = current_interpretation_.has_value() ? current_interpretation_->subject : "path_clear",
+        .proposition = current_interpretation_.has_value() ? current_interpretation_->proposition : "Caminho desobstruído para avanço",
+        .step_desc = std::string(step_desc)
+    };
+    return step_with_context(time, observations, ctx);
+}
+
+std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context(
+    core::LogicalTime time,
+    const std::vector<epistemic::Observation>& observations,
+    const StepContext& context
 ) {
     if (!genesis_service_.has_genesis()) {
         return std::unexpected(core::EnteError::GenesisNotEstablished);
@@ -296,16 +309,16 @@ std::expected<void, core::EnteError> EnteRealization::step(
             current_epoch_id
         );
         auto app_res = rec_.append(std::move(obs_event));
-        if (!app_res.has_value()) return app_res;
+        if (!app_res.has_value()) return std::unexpected(app_res.error());
     }
 
-    // 2. If no current interpretation, establish basal/initial interpretation
+    // 2. If no current interpretation, establish basal/initial interpretation from context
     if (!current_interpretation_.has_value()) {
         core::InterpretationId interp_id("I0000");
         current_interpretation_ = epistemic::Interpretation{
             .id = interp_id,
-            .subject = "path_clear",
-            .proposition = "Caminho desobstruído para avanço",
+            .subject = context.subject,
+            .proposition = context.proposition,
             .supporting_evidence = obs_evidence_ids,
             .challenging_evidence = {},
             .supersedes = std::nullopt,
@@ -319,12 +332,12 @@ std::expected<void, core::EnteError> EnteRealization::step(
             time,
             {},
             obs_evidence_ids,
-            std::format("INTERPRET:I0000:path_clear:{}", current_interpretation_->proposition),
+            std::format("INTERPRET:I0000:{}:{}", context.subject, current_interpretation_->proposition),
             current_auth_id,
             current_epoch_id
         );
         auto app_res = rec_.append(std::move(interp_event));
-        if (!app_res.has_value()) return app_res;
+        if (!app_res.has_value()) return std::unexpected(app_res.error());
     }
 
     // 3. Continuous Context Reassessment (RCC)
@@ -355,7 +368,7 @@ std::expected<void, core::EnteError> EnteRealization::step(
             current_epoch_id
         );
         auto app_res = rec_.append(std::move(rcc_event));
-        if (!app_res.has_value()) return app_res;
+        if (!app_res.has_value()) return std::unexpected(app_res.error());
 
         // Record Epistemic Action execution
         auto ep_event = rec_.create_event(
@@ -369,7 +382,7 @@ std::expected<void, core::EnteError> EnteRealization::step(
             current_epoch_id
         );
         auto app_ep = rec_.append(std::move(ep_event));
-        if (!app_ep.has_value()) return app_ep;
+        if (!app_ep.has_value()) return std::unexpected(app_ep.error());
     }
 
     // 6. Enforce Safety Directive upon Domain Substrate
@@ -399,7 +412,7 @@ std::expected<void, core::EnteError> EnteRealization::step(
         current_epoch_id
     );
     auto app_ra = rec_.append(std::move(ra_event));
-    if (!app_ra.has_value()) return app_ra;
+    if (!app_ra.has_value()) return std::unexpected(app_ra.error());
 
     // 7. Constitutional Violation Halt (Monotonically latches constitutive_status_)
     if (verification.status == constitution::ConstitutiveStatus::Violated) {
@@ -408,7 +421,21 @@ std::expected<void, core::EnteError> EnteRealization::step(
         return std::unexpected(core::EnteError::ConstitutiveViolation);
     }
 
-    return {};
+    DecisionTrace trace{
+        .compatibility = reassess.compatibility,
+        .epistemic_action = reassess.epistemic_action,
+        .rcc_state = reassess.state_after,
+        .safety_directive = safety_directive,
+        .constitutive_status = verification.status,
+        .current_interpretation = current_interpretation_,
+        .evidence_request = reassess.evidence_request,
+        .rec_head_hash = rec_.head().event_digest,
+        .rec_head_id = rec_.head().id,
+        .time = time,
+        .action_suspended = domain_.is_action_suspended()
+    };
+
+    return trace;
 }
 
 constitution::VerificationReport EnteRealization::verify() const noexcept {

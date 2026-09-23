@@ -18,6 +18,26 @@
 
 namespace ente::realization {
 
+struct StepContext {
+    std::string subject{"path_clear"};
+    std::string proposition{"Caminho desobstruído para avanço"};
+    std::string step_desc{"step"};
+};
+
+struct DecisionTrace {
+    judgment::CompatibilityResult compatibility{judgment::CompatibilityResult::Supported};
+    rcc::EpistemicAction epistemic_action{rcc::EpistemicAction::Keep};
+    rcc::RCCState rcc_state{rcc::RCCState::Stable};
+    assurance::SafetyDirective safety_directive{assurance::SafetyDirective::AllowAction};
+    constitution::ConstitutiveStatus constitutive_status{constitution::ConstitutiveStatus::Valid};
+    std::optional<epistemic::Interpretation> current_interpretation;
+    std::optional<epistemic::EvidenceRequest> evidence_request;
+    core::Digest rec_head_hash;
+    core::EventId rec_head_id;
+    core::LogicalTime time{0};
+    bool action_suspended{false};
+};
+
 struct ScenarioStep {
     core::LogicalTime time;
     std::vector<epistemic::Observation> observations;
@@ -52,10 +72,16 @@ public:
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_history(history::RecoverableHistory history);
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_file(std::string_view filepath);
 
-    [[nodiscard]] std::expected<void, core::EnteError> step(
+    [[nodiscard]] std::expected<DecisionTrace, core::EnteError> step(
         core::LogicalTime time,
         const std::vector<epistemic::Observation>& observations,
-        std::string_view step_desc
+        std::string_view step_desc = "step"
+    );
+
+    [[nodiscard]] std::expected<DecisionTrace, core::EnteError> step_with_context(
+        core::LogicalTime time,
+        const std::vector<epistemic::Observation>& observations,
+        const StepContext& context
     );
 
     [[nodiscard]] constitution::VerificationReport verify() const noexcept;

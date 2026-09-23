@@ -7,6 +7,9 @@
 #include <format>
 #include <iostream>
 #include <sstream>
+#include <filesystem>
+#include <fstream>
+#include <cassert>
 
 namespace fieldstation {
 
@@ -38,7 +41,14 @@ public:
     static std::vector<ScenarioEventLog> run_tour_a_resolution(bool resolve_dry_soil = true) {
         std::vector<ScenarioEventLog> logs;
 
-        ente::domain::GenericAgentWithEnte<FieldStationDomain> agent("field-001");
+        // Factual Genesis anchored on hardware RP-A921
+        ente::identity::MaterialAnchor genesis_anchor{
+            .id = ente::identity::MaterialAnchorId("RP-A921"),
+            .type = ente::identity::SubstrateType::TpmProtectedDevice,
+            .hardware_fingerprint = "fp-rpi5-secure-boot-a921"
+        };
+
+        ente::domain::GenericAgentWithEnte<FieldStationDomain> agent("field-001", FieldStationDomain{}, genesis_anchor);
         auto& domain = agent.domain_mut();
         auto& ente = agent.ente_mut();
 
@@ -100,11 +110,17 @@ public:
             }
         };
 
-        auto action_nominal = agent.decide_action(
+        ente::realization::StepContext ctx_nominal{
+            .subject = "soil_moisture_governance",
+            .proposition = "Solo seco (<30%). Irrigação necessária no setor 1.",
+            .step_desc = "nominal_irrigation_cycle"
+        };
+
+        auto outcome_nominal = agent.decide_action_detailed(
             ente::core::LogicalTime(1),
             obs_nominal,
             ValveAction::OpenValve,
-            "nominal_irrigation_cycle"
+            ctx_nominal
         );
 
         logs.push_back({
@@ -122,11 +138,11 @@ public:
             .interpretation = "IRRIGATION_NEEDED",
             .rcc_status = "SUPPORTED",
             .assurance_directive = "ALLOW_ACTION",
-            .valve_action = std::string(to_string(action_nominal)),
+            .valve_action = std::string(to_string(outcome_nominal.executed_action)),
             .hash = ente.history().head().event_digest.value
         });
 
-        // 3. SENSOR CONFLICT (Uncertainty Injected -> SafeHold)
+        // 3. SENSOR CONFLICT (Contradiction Injected -> RCC EvidenceRequest & SafeHold)
         std::vector<ente::epistemic::Observation> obs_conflict = {
             {
                 .id = ente::core::EvidenceId("EV-SOIL-A2"),
@@ -146,12 +162,23 @@ public:
             }
         };
 
-        auto action_conflict = agent.decide_action(
+        ente::realization::StepContext ctx_conflict{
+            .subject = "soil_moisture_governance",
+            .proposition = "Solo seco (<30%). Irrigação necessária no setor 1.",
+            .step_desc = "sensor_conflict_cycle"
+        };
+
+        auto outcome_conflict = agent.decide_action_detailed(
             ente::core::LogicalTime(2),
             obs_conflict,
             ValveAction::OpenValve,
-            "sensor_conflict_cycle"
+            ctx_conflict
         );
+
+        // Verification of EvidenceRequest generation
+        assert(outcome_conflict.is_safe_hold);
+        assert(outcome_conflict.executed_action == ValveAction::CloseValve);
+        assert(outcome_conflict.trace.evidence_request.has_value());
 
         logs.push_back({
             .tour_name = "Tour A · Epistemic Resolution",
@@ -159,7 +186,7 @@ public:
             .act_name = "Sensor Conflict",
             .logical_time = 2,
             .event_type = "PERTURBATION & SAFE_HOLD",
-            .description = "Probe A (DRY) contradicts Probe B (WET). RCC weakened. Directive: SafeHold. Discriminant evidence needed.",
+            .description = "Probe A (DRY) contradicts Probe B (WET). RCC weakened. Directive: SafeHold. Discriminant evidence requested by ENTE.",
             .hardware_id = "RP-A921",
             .soil_a = "20% (DRY)",
             .soil_b = "85% (WET CONFLICT)",
@@ -168,12 +195,11 @@ public:
             .interpretation = "WEAKENED_JUSTIFICATION",
             .rcc_status = "WEAKENED",
             .assurance_directive = "SAFE_HOLD",
-            .valve_action = std::string(to_string(action_conflict)),
+            .valve_action = std::string(to_string(outcome_conflict.executed_action)),
             .hash = ente.history().head().event_digest.value
         });
 
-        // 4. EVIDENCE SEEKING & DIAGNOSTIC OBSERVATION
-        // Domain runs self-test and queries Reference Probe C
+        // 4. EVIDENCE SEEKING & DIAGNOSTIC OBSERVATION (Domain responds to EvidenceRequest)
         double ref_c_val = resolve_dry_soil ? 22.0 : 82.0;
         bool b_has_drift = resolve_dry_soil;
         domain.run_diagnostic_self_test(b_has_drift, ref_c_val);
@@ -197,12 +223,17 @@ public:
             }
         };
 
-        // ENTE assesses diagnostic evidence
-        auto action_diag = agent.decide_action(
+        ente::realization::StepContext ctx_diag{
+            .subject = "soil_moisture_governance",
+            .proposition = "Investigação diagnóstica de discriminação",
+            .step_desc = "diagnostic_investigation_cycle"
+        };
+
+        auto outcome_diag = agent.decide_action_detailed(
             ente::core::LogicalTime(3),
             obs_diag,
             ValveAction::CloseValve,
-            "diagnostic_investigation_cycle"
+            ctx_diag
         );
 
         logs.push_back({
@@ -222,12 +253,26 @@ public:
             .interpretation = "EVIDENCE_DISCRIMINATED",
             .rcc_status = "SUPPORTED",
             .assurance_directive = "SAFE_HOLD",
-            .valve_action = std::string(to_string(action_diag)),
+            .valve_action = std::string(to_string(outcome_diag.executed_action)),
             .hash = ente.history().head().event_digest.value
         });
 
         // 5. REINTERPRETATION & DOMAIN RESPONSE
-        // Once suspect sensor is isolated, ENTE reinterprets with high coherence
+        // Adopt new interpretation grounded in verified ground truth
+        ente::epistemic::Interpretation new_interp{
+            .id = ente::core::InterpretationId("I-RESOLVED-001"),
+            .subject = "soil_moisture_governance",
+            .proposition = resolve_dry_soil
+                ? "Solo seco confirmado via Sonda C (22%). Sonda B isolada. Irrigação justificada."
+                : "Solo úmido confirmado via Sonda C (82%). Sonda A isolada. Irrigação desnecessária.",
+            .supporting_evidence = {ente::core::EvidenceId("EV-REF-C1"), ente::core::EvidenceId("EV-DIAG-SELFTEST")},
+            .challenging_evidence = {},
+            .supersedes = ente::core::InterpretationId("I0000"),
+            .status = ente::epistemic::InterpretationStatus::Current,
+            .created_at = ente::core::LogicalTime(4)
+        };
+        ente.adopt_interpretation(std::move(new_interp));
+
         std::vector<ente::epistemic::Observation> obs_resolved = {
             {
                 .id = ente::core::EvidenceId("EV-SOIL-RESOLVED"),
@@ -240,12 +285,23 @@ public:
         };
 
         ValveAction proposed = resolve_dry_soil ? ValveAction::OpenValve : ValveAction::CloseValve;
-        auto action_resolved = agent.decide_action(
+        ente::realization::StepContext ctx_resolved{
+            .subject = "soil_moisture_governance",
+            .proposition = resolve_dry_soil
+                ? "Solo seco confirmado via Sonda C (22%). Sonda B isolada. Irrigação justificada."
+                : "Solo úmido confirmado via Sonda C (82%). Sonda A isolada. Irrigação desnecessária.",
+            .step_desc = "reinterpreted_operational_cycle"
+        };
+
+        auto outcome_resolved = agent.decide_action_detailed(
             ente::core::LogicalTime(4),
             obs_resolved,
             proposed,
-            "reinterpreted_operational_cycle"
+            ctx_resolved
         );
+
+        assert(outcome_resolved.executed_action == proposed);
+        assert(domain.active_action() == proposed);
 
         logs.push_back({
             .tour_name = "Tour A · Epistemic Resolution",
@@ -264,7 +320,7 @@ public:
             .interpretation = resolve_dry_soil ? "IRRIGATION_NEEDED" : "IRRIGATION_NOT_NEEDED",
             .rcc_status = "SUPPORTED",
             .assurance_directive = resolve_dry_soil ? "ALLOW_ACTION" : "SAFE_HOLD",
-            .valve_action = std::string(to_string(action_resolved)),
+            .valve_action = std::string(to_string(outcome_resolved.executed_action)),
             .hash = ente.history().head().event_digest.value
         });
 
@@ -273,209 +329,207 @@ public:
 
     // ---------------------------------------------------------
     // TOUR B: ONTOLOGICAL CONTINUITY
-    // Genesis -> Conflict -> SafeHold -> Material Migration (RIT) -> Power Loss -> Cold Recovery
+    // Genesis -> Conflict -> SafeHold -> Material Migration (RIT) -> Power Loss -> Cold Recovery from Disk
     // ---------------------------------------------------------
     static std::vector<ScenarioEventLog> run_tour_b_continuity() {
         std::vector<ScenarioEventLog> logs;
 
-        ente::domain::GenericAgentWithEnte<FieldStationDomain> agent("field-001");
-        auto& domain = agent.domain_mut();
-        auto& ente = agent.ente_mut();
-
-        // 1. GENESIS
-        domain.set_telemetry(SensorTelemetry{
-            .soil_moisture_a = 21.0,
-            .soil_moisture_b = 22.0,
-            .rain_detected = false,
-            .water_tank_level = 73.0,
-            .flow_sensor_ok = true,
-            .hardware_id = "RP-A921"
-        });
-
-        logs.push_back({
-            .tour_name = "Tour B · Ontological Continuity",
-            .act_id = 1,
-            .act_name = "Genesis",
-            .logical_time = 0,
-            .event_type = "GENESIS",
-            .description = "Station born on RP-A921. Cryptographic identity established.",
-            .hardware_id = "RP-A921",
-            .soil_a = "21%",
-            .soil_b = "22%",
-            .soil_c = "OFF",
-            .diagnostic_status = "IDLE",
-            .interpretation = "INITIALIZING",
-            .rcc_status = "STABLE",
-            .assurance_directive = "SAFE_HOLD",
-            .valve_action = "CLOSE_VALVE",
-            .hash = ente.history().events().front().event_digest.value
-        });
-
-        // 2. CONFLICT & SAFEHOLD
-        std::vector<ente::epistemic::Observation> obs_conflict = {
-            {
-                .id = ente::core::EvidenceId("EV-SOIL-A1"),
-                .source = "probe_a",
-                .subject = "soil_moisture",
-                .value = "20%",
-                .observed_at = 1,
-                .status = ente::epistemic::EpistemicStatus::Observed
-            },
-            {
-                .id = ente::core::EvidenceId("EV-SOIL-B1"),
-                .source = "probe_b",
-                .subject = "soil_moisture",
-                .value = "85%",
-                .observed_at = 1,
-                .status = ente::epistemic::EpistemicStatus::Contradictory
-            }
-        };
-
-        auto action_conflict = agent.decide_action(
-            ente::core::LogicalTime(1),
-            obs_conflict,
-            ValveAction::OpenValve,
-            "conflict_pre_migration"
-        );
-
-        logs.push_back({
-            .tour_name = "Tour B · Ontological Continuity",
-            .act_id = 2,
-            .act_name = "Conflict & SafeHold",
-            .logical_time = 1,
-            .event_type = "PERTURBATION & SAFE_HOLD",
-            .description = "Sensor conflict triggers SafeHold. Valve is locked closed.",
-            .hardware_id = "RP-A921",
-            .soil_a = "20% (DRY)",
-            .soil_b = "85% (WET)",
-            .soil_c = "OFF",
-            .diagnostic_status = "CONFLICT_ACTIVE",
-            .interpretation = "WEAKENED_JUSTIFICATION",
-            .rcc_status = "WEAKENED",
-            .assurance_directive = "SAFE_HOLD",
-            .valve_action = std::string(to_string(action_conflict)),
-            .hash = ente.history().head().event_digest.value
-        });
-
-        // 3. MATERIAL MIGRATION (RIT / Ship of Theseus)
-        ente::identity::MaterialAnchor new_anchor{
-            .id = ente::identity::MaterialAnchorId("RP-B104"),
+        ente::identity::MaterialAnchor genesis_anchor{
+            .id = ente::identity::MaterialAnchorId("RP-A921"),
             .type = ente::identity::SubstrateType::TpmProtectedDevice,
-            .hardware_fingerprint = "sha256_b104_arm64_rpi5"
+            .hardware_fingerprint = "fp-rpi5-secure-boot-a921"
         };
 
-        auto mig_res = ente.migrate_hardware(new_anchor, ente::core::LogicalTime(2));
-        if (mig_res.has_value()) {
+        // Scope 1: Process A runs on hardware RP-A921
+        std::string rec_filepath = "field_station_rec.log";
+        {
+            ente::domain::GenericAgentWithEnte<FieldStationDomain> agent("field-001", FieldStationDomain{}, genesis_anchor);
+            auto& domain = agent.domain_mut();
+            auto& ente = agent.ente_mut();
+
+            // 1. GENESIS
             domain.set_telemetry(SensorTelemetry{
-                .soil_moisture_a = 20.0,
-                .soil_moisture_b = 85.0,
+                .soil_moisture_a = 21.0,
+                .soil_moisture_b = 22.0,
                 .rain_detected = false,
                 .water_tank_level = 73.0,
                 .flow_sensor_ok = true,
-                .hardware_id = "RP-B104"
+                .hardware_id = "RP-A921"
             });
+
+            logs.push_back({
+                .tour_name = "Tour B · Ontological Continuity",
+                .act_id = 1,
+                .act_name = "Genesis",
+                .logical_time = 0,
+                .event_type = "GENESIS",
+                .description = "Station born on RP-A921. Cryptographic identity established.",
+                .hardware_id = "RP-A921",
+                .soil_a = "21%",
+                .soil_b = "22%",
+                .soil_c = "OFF",
+                .diagnostic_status = "IDLE",
+                .interpretation = "INITIALIZING",
+                .rcc_status = "STABLE",
+                .assurance_directive = "SAFE_HOLD",
+                .valve_action = "CLOSE_VALVE",
+                .hash = ente.history().events().front().event_digest.value
+            });
+
+            // 2. CONFLICT & SAFEHOLD
+            std::vector<ente::epistemic::Observation> obs_conflict = {
+                {
+                    .id = ente::core::EvidenceId("EV-SOIL-A1"),
+                    .source = "probe_a",
+                    .subject = "soil_moisture",
+                    .value = "20%",
+                    .observed_at = 1,
+                    .status = ente::epistemic::EpistemicStatus::Observed
+                },
+                {
+                    .id = ente::core::EvidenceId("EV-SOIL-B1"),
+                    .source = "probe_b",
+                    .subject = "soil_moisture",
+                    .value = "85%",
+                    .observed_at = 1,
+                    .status = ente::epistemic::EpistemicStatus::Contradictory
+                }
+            };
+
+            ente::realization::StepContext ctx_conflict{
+                .subject = "soil_moisture_governance",
+                .proposition = "Solo seco (<30%). Irrigação necessária.",
+                .step_desc = "conflict_pre_migration"
+            };
+
+            auto outcome_conflict = agent.decide_action_detailed(
+                ente::core::LogicalTime(1),
+                obs_conflict,
+                ValveAction::OpenValve,
+                ctx_conflict
+            );
+
+            logs.push_back({
+                .tour_name = "Tour B · Ontological Continuity",
+                .act_id = 2,
+                .act_name = "Conflict & SafeHold",
+                .logical_time = 1,
+                .event_type = "PERTURBATION & SAFE_HOLD",
+                .description = "Sensor conflict triggers SafeHold. Valve is locked closed.",
+                .hardware_id = "RP-A921",
+                .soil_a = "20% (DRY)",
+                .soil_b = "85% (WET)",
+                .soil_c = "OFF",
+                .diagnostic_status = "CONFLICT_ACTIVE",
+                .interpretation = "WEAKENED_JUSTIFICATION",
+                .rcc_status = "WEAKENED",
+                .assurance_directive = "SAFE_HOLD",
+                .valve_action = std::string(to_string(outcome_conflict.executed_action)),
+                .hash = ente.history().head().event_digest.value
+            });
+
+            // 3. MATERIAL MIGRATION (RIT / Ship of Theseus)
+            ente::identity::MaterialAnchor new_anchor{
+                .id = ente::identity::MaterialAnchorId("RP-B104"),
+                .type = ente::identity::SubstrateType::TpmProtectedDevice,
+                .hardware_fingerprint = "sha256_b104_arm64_rpi5"
+            };
+
+            auto mig_res = ente.migrate_hardware(new_anchor, ente::core::LogicalTime(2));
+            assert(mig_res.has_value());
+
+            logs.push_back({
+                .tour_name = "Tour B · Ontological Continuity",
+                .act_id = 3,
+                .act_name = "Replace Hardware",
+                .logical_time = 2,
+                .event_type = "MATERIAL_TRANSFORMATION",
+                .description = "RIT Migration: Raspberry Pi A -> Raspberry Pi B. Process and hardware changed, identity preserved.",
+                .hardware_id = "RP-B104",
+                .soil_a = "20% (DRY)",
+                .soil_b = "85% (WET)",
+                .soil_c = "OFF",
+                .diagnostic_status = "MIGRATED",
+                .interpretation = "WEAKENED_JUSTIFICATION",
+                .rcc_status = "WEAKENED",
+                .assurance_directive = "SAFE_HOLD",
+                .valve_action = "CLOSE_VALVE",
+                .hash = ente.history().head().event_digest.value
+            });
+
+            // Persist ledger to disk
+            auto save_res = ente.history().save_to_file(rec_filepath);
+            assert(save_res.has_value());
+            // Agent and Process A are destroyed here at scope end!
         }
 
-        logs.push_back({
-            .tour_name = "Tour B · Ontological Continuity",
-            .act_id = 3,
-            .act_name = "Replace Hardware",
-            .logical_time = 2,
-            .event_type = "MATERIAL_TRANSFORMATION",
-            .description = "RIT Migration: Raspberry Pi A -> Raspberry Pi B. Process and hardware changed, identity preserved.",
-            .hardware_id = "RP-B104",
-            .soil_a = "20% (DRY)",
-            .soil_b = "85% (WET)",
-            .soil_c = "OFF",
-            .diagnostic_status = "MIGRATED",
-            .interpretation = "WEAKENED_JUSTIFICATION",
-            .rcc_status = "WEAKENED",
-            .assurance_directive = "SAFE_HOLD",
-            .valve_action = "CLOSE_VALVE",
-            .hash = ente.history().head().event_digest.value
-        });
+        // Scope 2: Process B boots from Cold Storage file on disk
+        {
+            auto rec_res = ente::realization::EnteRealization::recover_from_file(rec_filepath);
+            assert(rec_res.has_value());
+            auto recovered_ente = std::move(*rec_res);
+            assert(recovered_ente.verify().is_valid());
 
-        // 4. POWER LOSS & COLD RECOVERY
-        auto history_copy = ente.history();
-        auto rec_res = ente::realization::EnteRealization::recover_from_history(history_copy);
-
-        logs.push_back({
-            .tour_name = "Tour B · Ontological Continuity",
-            .act_id = 4,
-            .act_name = "Power Loss & Recovery",
-            .logical_time = 3,
-            .event_type = "COLD_RECOVERY",
-            .description = rec_res.has_value() 
-                ? "Process killed and restarted from cold storage. 100% of trajectory restored. SafeHold preserved."
-                : "Recovery failed",
-            .hardware_id = "RP-B104",
-            .soil_a = "20% (DRY)",
-            .soil_b = "85% (WET)",
-            .soil_c = "OFF",
-            .diagnostic_status = "RECOVERED",
-            .interpretation = "WEAKENED_JUSTIFICATION",
-            .rcc_status = "WEAKENED",
-            .assurance_directive = "SAFE_HOLD",
-            .valve_action = "CLOSE_VALVE",
-            .hash = rec_res.has_value() 
-                ? rec_res.value().history().head().event_digest.value
-                : "0000000000000000000000000000000000000000000000000000000000000000"
-        });
+            logs.push_back({
+                .tour_name = "Tour B · Ontological Continuity",
+                .act_id = 4,
+                .act_name = "Power Loss & Recovery",
+                .logical_time = 3,
+                .event_type = "COLD_RECOVERY",
+                .description = "Process killed and restarted from disk storage. 100% of trajectory restored. SafeHold preserved.",
+                .hardware_id = "RP-B104",
+                .soil_a = "20% (DRY)",
+                .soil_b = "85% (WET)",
+                .soil_c = "OFF",
+                .diagnostic_status = "RECOVERED",
+                .interpretation = "WEAKENED_JUSTIFICATION",
+                .rcc_status = "WEAKENED",
+                .assurance_directive = "SAFE_HOLD",
+                .valve_action = "CLOSE_VALVE",
+                .hash = recovered_ente.history().head().event_digest.value
+            });
+        }
 
         return logs;
     }
 
-    static std::string to_json(const std::vector<ScenarioEventLog>& tour_a, const std::vector<ScenarioEventLog>& tour_b) {
+    static std::string to_json(
+        const std::vector<ScenarioEventLog>& tour_a_dry,
+        const std::vector<ScenarioEventLog>& tour_a_wet,
+        const std::vector<ScenarioEventLog>& tour_b
+    ) {
         std::ostringstream ss;
         ss << "{\n";
         
-        // Tour A array
-        ss << "  \"tour_a\": [\n";
-        for (size_t i = 0; i < tour_a.size(); ++i) {
-            const auto& l = tour_a[i];
-            ss << "    {\n";
-            ss << "      \"act_id\": " << l.act_id << ",\n";
-            ss << "      \"act_name\": \"" << l.act_name << "\",\n";
-            ss << "      \"logical_time\": " << l.logical_time << ",\n";
-            ss << "      \"event_type\": \"" << l.event_type << "\",\n";
-            ss << "      \"description\": \"" << l.description << "\",\n";
-            ss << "      \"hardware_id\": \"" << l.hardware_id << "\",\n";
-            ss << "      \"soil_a\": \"" << l.soil_a << "\",\n";
-            ss << "      \"soil_b\": \"" << l.soil_b << "\",\n";
-            ss << "      \"soil_c\": \"" << l.soil_c << "\",\n";
-            ss << "      \"diagnostic_status\": \"" << l.diagnostic_status << "\",\n";
-            ss << "      \"interpretation\": \"" << l.interpretation << "\",\n";
-            ss << "      \"rcc_status\": \"" << l.rcc_status << "\",\n";
-            ss << "      \"assurance_directive\": \"" << l.assurance_directive << "\",\n";
-            ss << "      \"valve_action\": \"" << l.valve_action << "\",\n";
-            ss << "      \"hash\": \"" << l.hash << "\"\n";
-            ss << "    }" << (i + 1 < tour_a.size() ? "," : "") << "\n";
-        }
-        ss << "  ],\n";
+        auto format_array = [&ss](std::string_view key, const std::vector<ScenarioEventLog>& tour, bool has_next) {
+            ss << "  \"" << key << "\": [\n";
+            for (size_t i = 0; i < tour.size(); ++i) {
+                const auto& l = tour[i];
+                ss << "    {\n";
+                ss << "      \"act_id\": " << l.act_id << ",\n";
+                ss << "      \"act_name\": \"" << l.act_name << "\",\n";
+                ss << "      \"logical_time\": " << l.logical_time << ",\n";
+                ss << "      \"event_type\": \"" << l.event_type << "\",\n";
+                ss << "      \"description\": \"" << l.description << "\",\n";
+                ss << "      \"hardware_id\": \"" << l.hardware_id << "\",\n";
+                ss << "      \"soil_a\": \"" << l.soil_a << "\",\n";
+                ss << "      \"soil_b\": \"" << l.soil_b << "\",\n";
+                ss << "      \"soil_c\": \"" << l.soil_c << "\",\n";
+                ss << "      \"diagnostic_status\": \"" << l.diagnostic_status << "\",\n";
+                ss << "      \"interpretation\": \"" << l.interpretation << "\",\n";
+                ss << "      \"rcc_status\": \"" << l.rcc_status << "\",\n";
+                ss << "      \"assurance_directive\": \"" << l.assurance_directive << "\",\n";
+                ss << "      \"valve_action\": \"" << l.valve_action << "\",\n";
+                ss << "      \"hash\": \"" << l.hash << "\"\n";
+                ss << "    }" << (i + 1 < tour.size() ? "," : "") << "\n";
+            }
+            ss << "  ]" << (has_next ? ",\n" : "\n");
+        };
 
-        // Tour B array
-        ss << "  \"tour_b\": [\n";
-        for (size_t i = 0; i < tour_b.size(); ++i) {
-            const auto& l = tour_b[i];
-            ss << "    {\n";
-            ss << "      \"act_id\": " << l.act_id << ",\n";
-            ss << "      \"act_name\": \"" << l.act_name << "\",\n";
-            ss << "      \"logical_time\": " << l.logical_time << ",\n";
-            ss << "      \"event_type\": \"" << l.event_type << "\",\n";
-            ss << "      \"description\": \"" << l.description << "\",\n";
-            ss << "      \"hardware_id\": \"" << l.hardware_id << "\",\n";
-            ss << "      \"soil_a\": \"" << l.soil_a << "\",\n";
-            ss << "      \"soil_b\": \"" << l.soil_b << "\",\n";
-            ss << "      \"soil_c\": \"" << l.soil_c << "\",\n";
-            ss << "      \"diagnostic_status\": \"" << l.diagnostic_status << "\",\n";
-            ss << "      \"interpretation\": \"" << l.interpretation << "\",\n";
-            ss << "      \"rcc_status\": \"" << l.rcc_status << "\",\n";
-            ss << "      \"assurance_directive\": \"" << l.assurance_directive << "\",\n";
-            ss << "      \"valve_action\": \"" << l.valve_action << "\",\n";
-            ss << "      \"hash\": \"" << l.hash << "\"\n";
-            ss << "    }" << (i + 1 < tour_b.size() ? "," : "") << "\n";
-        }
-        ss << "  ]\n";
+        format_array("tour_a_dry", tour_a_dry, true);
+        format_array("tour_a_wet", tour_a_wet, true);
+        format_array("tour_b", tour_b, false);
+
         ss << "}\n";
         return ss.str();
     }

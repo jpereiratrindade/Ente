@@ -60,14 +60,20 @@ int main() {
     assert(tour_b[3].event_type == "COLD_RECOVERY");
     assert(tour_b[3].assurance_directive == "SAFE_HOLD"); // SafeHold preservado após crash
 
-    // Exportar JSON combinado para a UI web
-    std::string json_data = fieldstation::FieldStationScenarios::to_json(tour_a, tour_b);
+    // Exportar JSON combinado para a UI web e docs
+    std::string json_data = fieldstation::FieldStationScenarios::to_json(tour_a, tour_a_wet, tour_b);
     try {
         std::filesystem::create_directories("examples/field-station/web");
-        std::ofstream out("examples/field-station/web/events.json");
-        if (out.is_open()) {
-            out << json_data;
-            std::cout << "\n[OK] Exported events.json with Tour A and Tour B to examples/field-station/web/events.json\n";
+        std::ofstream out_web("examples/field-station/web/events.json");
+        if (out_web.is_open()) {
+            out_web << json_data;
+            std::cout << "\n[OK] Exported events.json to examples/field-station/web/events.json\n";
+        }
+        std::filesystem::create_directories("docs");
+        std::ofstream out_docs("docs/events.json");
+        if (out_docs.is_open()) {
+            out_docs << json_data;
+            std::cout << "[OK] Exported events.json to docs/events.json\n";
         }
     } catch (...) {}
 

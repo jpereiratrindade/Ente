@@ -55,6 +55,12 @@ public:
     [[nodiscard]] bool is_suspended() const noexcept { return suspended_; }
     [[nodiscard]] static constexpr VehicleAction safe_hold_action() noexcept { return VehicleAction::Hold; }
 
+    void apply_action(VehicleAction a) noexcept {
+        suspended_ = false;
+        action_ = a;
+        state_ = (a == VehicleAction::Depart ? VehicleState::Departing : VehicleState::Stopped);
+    }
+
     void apply_safety_directive(ente::assurance::SafetyDirective directive) noexcept {
         if (directive == ente::assurance::SafetyDirective::SafeHold ||
             directive == ente::assurance::SafetyDirective::EmergencyStop ||
@@ -64,8 +70,6 @@ public:
             state_ = VehicleState::Holding;
         } else {
             suspended_ = false;
-            action_ = VehicleAction::Depart;
-            state_ = VehicleState::Departing;
         }
     }
 
