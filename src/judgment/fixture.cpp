@@ -2,6 +2,8 @@
 #include "ente/core/hash.hpp"
 #include <format>
 
+#include <unordered_map>
+
 namespace ente::judgment {
 
 void FixtureJudgmentEngine::set_canned_response(
@@ -29,30 +31,36 @@ JudgmentReport FixtureJudgmentEngine::evaluate_compatibility(
         };
     }
 
-    // Check for contradictory evidence in the batch
-    bool has_clear = false;
-    bool has_blocked = false;
+    // 1. Generic Contradiction Detection (direct Contradictory status or boolean/semantic polar opposites)
+    auto is_polar_opposite = [](std::string_view a, std::string_view b) noexcept -> bool {
+        if ((a == "true" && b == "false") || (a == "false" && b == "true")) return true;
+        if ((a == "dry" && b == "wet") || (a == "wet" && b == "dry")) return true;
+        if ((a == "clear" && b == "blocked") || (a == "blocked" && b == "clear")) return true;
+        return false;
+    };
+
+    std::unordered_map<std::string, std::string> seen_subject_values;
     for (const auto& obs : new_evidence) {
         if (obs.status == epistemic::EpistemicStatus::Contradictory) {
             return JudgmentReport{
                 .compatibility = CompatibilityResult::Contradictory,
-                .rationale = "Direct contradictory epistemic observation",
+                .rationale = std::format("Direct contradictory epistemic observation on '{}'", obs.subject),
                 .engine_digest = core::HashUtil::sha256("fixture-contradiction")
             };
         }
-        if (obs.value == "true" && obs.subject == "path_clear") has_clear = true;
-        if (obs.value == "false" && obs.subject == "path_clear") has_blocked = true;
+        auto it = seen_subject_values.find(obs.subject);
+        if (it != seen_subject_values.end() && is_polar_opposite(it->second, obs.value)) {
+            return JudgmentReport{
+                .compatibility = CompatibilityResult::Contradictory,
+                .rationale = std::format("Mutually contradictory polar observations for subject '{}' in same cycle ('{}' vs '{}')",
+                    obs.subject, it->second, obs.value),
+                .engine_digest = core::HashUtil::sha256("fixture-contradiction")
+            };
+        }
+        seen_subject_values[obs.subject] = obs.value;
     }
 
-    if (has_clear && has_blocked) {
-        return JudgmentReport{
-            .compatibility = CompatibilityResult::Contradictory,
-            .rationale = "Mutually contradictory observations present in same cycle",
-            .engine_digest = core::HashUtil::sha256("fixture-contradiction")
-        };
-    }
-
-    // Check matching rules
+    // 2. Custom Explicit Domain Rules
     for (const auto& obs : new_evidence) {
         std::string key = std::format("{}:{}", current.subject, obs.subject);
         auto it = rules_.find(key);
@@ -64,17 +72,19 @@ JudgmentReport FixtureJudgmentEngine::evaluate_compatibility(
             };
         }
 
-        // Automatic weakening if observation has unknown class or unexpected motion
-        if (obs.subject == "unexpected_motion" || obs.status == epistemic::EpistemicStatus::Unknown) {
+        // 3. Generic Epistemic Weakening for Unknown or Uncertain observations
+        if (obs.status == epistemic::EpistemicStatus::Unknown ||
+            obs.status == epistemic::EpistemicStatus::Uncertain ||
+            obs.subject.find("anomaly") != std::string::npos) {
             return JudgmentReport{
                 .compatibility = CompatibilityResult::Weakened,
-                .rationale = "Unexpected motion or unclassified anomaly challenges path clear",
+                .rationale = std::format("Epistemic uncertainty or unknown anomaly in subject '{}'", obs.subject),
                 .engine_digest = core::HashUtil::sha256("fixture-weakened-auto")
             };
         }
     }
 
-    // Default to supported if nothing challenged it
+    // Default to supported if no rules or anomalies challenged it
     return JudgmentReport{
         .compatibility = CompatibilityResult::Supported,
         .rationale = "Evidence compatible with current interpretation",
