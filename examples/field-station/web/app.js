@@ -331,13 +331,20 @@ function switchTour(tour) {
   currentTour = tour;
   currentAct = 1;
 
-  document.getElementById("tab-tour-a").classList.toggle("active", tour === "A");
-  document.getElementById("tab-tour-b").classList.toggle("active", tour === "B");
-  document.getElementById("branch-toggle-container").style.display = tour === "A" ? "flex" : "none";
+  const tabA = document.getElementById("tab-tour-a");
+  const tabB = document.getElementById("tab-tour-b");
+  const branchToggle = document.getElementById("branch-toggle-container");
+  const timelineTitle = document.getElementById("timeline-title");
 
-  document.getElementById("timeline-title").textContent = tour === "A"
-    ? "Biography of the ENTE (Tour A: Active Epistemic Resolution)"
-    : "Biography of the ENTE (Tour B: Ontological Continuity)";
+  if (tabA) tabA.classList.toggle("active", tour === "A");
+  if (tabB) tabB.classList.toggle("active", tour === "B");
+  if (branchToggle) branchToggle.style.display = tour === "A" ? "flex" : "none";
+
+  if (timelineTitle) {
+    timelineTitle.textContent = tour === "A"
+      ? "Biography of the ENTE (Tour A: Active Epistemic Resolution)"
+      : "Biography of the ENTE (Tour B: Ontological Continuity)";
+  }
 
   renderActButtons();
   setAct(1);
@@ -345,8 +352,10 @@ function switchTour(tour) {
 
 function setResolutionOutcome(isDry) {
   resolveDrySoil = isDry;
-  document.getElementById("btn-outcome-dry").classList.toggle("active", isDry);
-  document.getElementById("btn-outcome-wet").classList.toggle("active", !isDry);
+  const btnDry = document.getElementById("btn-outcome-dry");
+  const btnWet = document.getElementById("btn-outcome-wet");
+  if (btnDry) btnDry.classList.toggle("active", isDry);
+  if (btnWet) btnWet.classList.toggle("active", !isDry);
 
   // If factual dynamic data is loaded, apply appropriate branch
   if (factualData && factualData.tour_a_wet && !isDry) {
@@ -410,13 +419,14 @@ function setResolutionOutcome(isDry) {
 }
 
 function renderActButtons() {
-  const container = document.getElementById("act-buttons");
+  const container = document.getElementById("act-buttons-container") || document.getElementById("act-buttons");
+  if (!container) return;
   container.innerHTML = "";
 
   const acts = getCurrentActList();
   acts.forEach(act => {
     const btn = document.createElement("button");
-    btn.className = `btn ${act.id === currentAct ? "btn-primary" : "btn-secondary"}`;
+    btn.className = `btn-demo ${act.id === currentAct ? "active" : ""}`;
     btn.textContent = act.name;
     btn.onclick = () => setAct(act.id);
     container.appendChild(btn);
@@ -435,98 +445,154 @@ function updateDisplay() {
   if (!act) return;
 
   // Header badges
-  document.getElementById("badge-hardware-id").textContent = `Hardware: ${act.hardwareId}`;
-  document.getElementById("val-logical-time").textContent = `${act.time} ticks`;
-  document.getElementById("val-sha256-head").textContent = `${act.hash.substring(0, 16)}…`;
+  const metaHw = document.getElementById("meta-hardware") || document.getElementById("badge-hardware-id");
+  if (metaHw) metaHw.textContent = `Raspberry Pi (${act.hardwareId})`;
+
+  const metaGenesis = document.getElementById("meta-genesis");
+  if (metaGenesis) metaGenesis.textContent = `${act.hash.substring(0, 10)}...`;
 
   // Column 1: Sensors
-  document.getElementById("val-soil-a").textContent = `${act.soilA}%`;
-  document.getElementById("val-soil-b").textContent = `${act.soilB}%`;
-  document.getElementById("status-soil-a").textContent = act.soilAStatus;
-  document.getElementById("status-soil-b").textContent = act.soilBStatus;
-  
-  const pillA = document.getElementById("status-soil-a");
-  const pillB = document.getElementById("status-soil-b");
-  pillA.className = `status-pill ${act.soilAStatus.includes("DRY") ? "status-pill-warning" : act.soilAStatus.includes("ISOLATED") ? "status-pill-danger" : "status-pill-green"}`;
-  pillB.className = `status-pill ${act.soilBStatus.includes("WET") ? "status-pill-green" : act.soilBStatus.includes("ISOLATED") ? "status-pill-danger" : "status-pill-warning"}`;
+  const valSoilA = document.getElementById("val-soil-a");
+  if (valSoilA) valSoilA.textContent = `${act.soilA}%`;
 
-  document.getElementById("val-rain").textContent = act.rain;
-  document.getElementById("status-rain").textContent = act.rainStatus;
-  document.getElementById("val-tank").textContent = `${act.tank}%`;
+  const valSoilB = document.getElementById("val-soil-b");
+  if (valSoilB) valSoilB.textContent = `${act.soilB}%`;
+
+  const badgeSoilA = document.getElementById("badge-soil-a") || document.getElementById("status-soil-a");
+  if (badgeSoilA) {
+    badgeSoilA.textContent = act.soilAStatus;
+    badgeSoilA.className = `reading-status ${act.soilAStatus.includes("DRY") ? "status-dry" : act.soilAStatus.includes("ISOLATED") ? "status-isolated" : "status-wet"}`;
+  }
+
+  const badgeSoilB = document.getElementById("badge-soil-b") || document.getElementById("status-soil-b");
+  if (badgeSoilB) {
+    badgeSoilB.textContent = act.soilBStatus;
+    badgeSoilB.className = `reading-status ${act.soilBStatus.includes("DRY") ? "status-dry" : act.soilBStatus.includes("ISOLATED") ? "status-isolated" : "status-wet"}`;
+  }
+
+  const fillSoilA = document.getElementById("fill-soil-a");
+  if (fillSoilA) fillSoilA.style.width = `${act.soilA}%`;
+
+  const fillSoilB = document.getElementById("fill-soil-b");
+  if (fillSoilB) fillSoilB.style.width = `${act.soilB}%`;
+
+  const valRain = document.getElementById("val-rain");
+  if (valRain) valRain.textContent = act.rain;
+
+  const badgeRain = document.getElementById("badge-rain") || document.getElementById("status-rain");
+  if (badgeRain) badgeRain.textContent = act.rainStatus;
+
+  const valTank = document.getElementById("val-tank");
+  if (valTank) valTank.textContent = `${act.tank}%`;
+
+  const fillTank = document.getElementById("fill-tank");
+  if (fillTank) fillTank.style.width = `${act.tank}%`;
 
   // Column 2: Cognitive Interpretation & RCC
-  document.getElementById("val-interpretation").textContent = act.interpretation;
-  document.getElementById("val-epistemic-type").textContent = act.epistemicType;
+  const valInterp = document.getElementById("val-interpretation");
+  if (valInterp) valInterp.textContent = `"${act.interpretation}"`;
 
-  const rccPill = document.getElementById("val-rcc-state");
-  rccPill.textContent = act.rccState;
-  rccPill.className = `status-pill ${act.rccState === "SUPPORTED" || act.rccState === "STABLE" ? "status-pill-green" : act.rccState === "WEAKENED" ? "status-pill-warning" : "status-pill-danger"}`;
+  const valEpistemicType = document.getElementById("val-epistemic-type");
+  if (valEpistemicType) valEpistemicType.textContent = act.epistemicType;
 
-  document.getElementById("rcc-description").textContent = act.rccDesc;
+  const badgeRcc = document.getElementById("badge-rcc") || document.getElementById("val-rcc-state");
+  if (badgeRcc) {
+    badgeRcc.textContent = act.rccState;
+    badgeRcc.className = `rcc-badge ${act.rccState === "SUPPORTED" || act.rccState === "STABLE" ? "rcc-supported" : act.rccState === "WEAKENED" ? "rcc-weakened" : "rcc-challenged"}`;
+  }
+
+  const descRcc = document.getElementById("desc-rcc") || document.getElementById("rcc-description");
+  if (descRcc) descRcc.textContent = act.rccDesc;
 
   // Column 3: Runtime Assurance & Actuators
-  const assurancePill = document.getElementById("val-assurance-directive");
-  assurancePill.textContent = act.assurance;
-  assurancePill.className = `status-pill ${act.assurance === "ALLOW_ACTION" ? "status-pill-green" : "status-pill-warning"}`;
+  const boxAssurance = document.getElementById("box-assurance") || document.getElementById("val-assurance-directive");
+  if (boxAssurance) {
+    boxAssurance.textContent = act.assurance;
+    boxAssurance.className = `directive-box ${act.assurance === "ALLOW_ACTION" ? "directive-allow" : "directive-hold"}`;
+  }
 
-  document.getElementById("assurance-description").textContent = act.assuranceDesc;
+  const descAssurance = document.getElementById("desc-assurance") || document.getElementById("assurance-description");
+  if (descAssurance) descAssurance.textContent = act.assuranceDesc;
 
-  const valveIndicator = document.getElementById("valve-indicator");
-  const valveLabel = document.getElementById("valve-label");
+  const indicatorValve = document.getElementById("indicator-valve") || document.getElementById("valve-indicator");
+  const labelValve = document.getElementById("label-valve") || document.getElementById("valve-label");
   const waterSpray = document.getElementById("water-spray");
-  const sectorState = document.getElementById("val-sector-state");
+  const sectorState = document.getElementById("metric-sector-state") || document.getElementById("val-sector-state");
 
   if (act.valve === "OPEN") {
-    valveIndicator.className = "valve-indicator valve-open";
-    valveLabel.textContent = "VALVE OPEN (IRRIGATING)";
-    waterSpray.classList.add("active");
-    sectorState.textContent = "IRRIGATING";
-    sectorState.className = "status-pill status-pill-green";
-    document.getElementById("metric-valve-dir").textContent = "OPEN_VALVE";
-    document.getElementById("metric-flow-rate").textContent = act.flowRate;
+    if (indicatorValve) indicatorValve.className = "valve-indicator valve-open";
+    if (labelValve) labelValve.textContent = "VALVE OPEN";
+    if (waterSpray) waterSpray.classList.add("active");
+    if (sectorState) {
+      sectorState.textContent = "IRRIGATING";
+      sectorState.className = "status-pill status-pill-green";
+    }
+    const valMetricDir = document.getElementById("metric-valve-dir");
+    if (valMetricDir) valMetricDir.textContent = "OPEN_VALVE";
+
+    const valMetricFlow = document.getElementById("metric-flow-rate");
+    if (valMetricFlow) valMetricFlow.textContent = act.flowRate;
   } else {
-    valveIndicator.className = "valve-indicator valve-closed";
-    valveLabel.textContent = "VALVE CLOSED (HOLD)";
-    waterSpray.classList.remove("active");
-    sectorState.textContent = act.sectorState;
-    sectorState.className = act.sectorState === "SAFE_HOLD" ? "status-pill status-pill-warning" : "status-pill status-pill-green";
-    document.getElementById("metric-valve-dir").textContent = "CLOSE_VALVE";
-    document.getElementById("metric-flow-rate").textContent = "0.0 L/min";
+    if (indicatorValve) indicatorValve.className = "valve-indicator valve-closed";
+    if (labelValve) labelValve.textContent = "VALVE CLOSED (HOLD)";
+    if (waterSpray) waterSpray.classList.remove("active");
+    if (sectorState) {
+      sectorState.textContent = act.sectorState;
+      sectorState.className = act.sectorState === "SAFE_HOLD" ? "status-pill status-pill-warning" : "status-pill status-pill-green";
+    }
+    const valMetricDir = document.getElementById("metric-valve-dir");
+    if (valMetricDir) valMetricDir.textContent = "CLOSE_VALVE";
+
+    const valMetricFlow = document.getElementById("metric-flow-rate");
+    if (valMetricFlow) valMetricFlow.textContent = "0.0 L/min";
   }
 
   // Column 4: Diagnostic & Resolution Engine
   const diagStatus = document.getElementById("val-diag-status");
-  diagStatus.textContent = act.diagStatus;
-  if (act.diagStatus === "IDLE" || act.diagStatus === "NOMINAL") {
-    diagStatus.className = "status-pill status-pill-green";
-  } else if (act.diagStatus.includes("REQUIRED") || act.diagStatus.includes("SUSPECT")) {
-    diagStatus.className = "status-pill status-pill-warning";
-  } else {
-    diagStatus.className = "status-pill status-pill-green";
+  if (diagStatus) {
+    diagStatus.textContent = act.diagStatus;
+    if (act.diagStatus === "IDLE" || act.diagStatus === "NOMINAL") {
+      diagStatus.className = "status-pill status-pill-green";
+    } else if (act.diagStatus.includes("REQUIRED") || act.diagStatus.includes("SUSPECT")) {
+      diagStatus.className = "status-pill status-pill-warning";
+    } else {
+      diagStatus.className = "status-pill status-pill-green";
+    }
   }
 
-  document.getElementById("diag-instruction").textContent = act.diagInstruction;
-  document.getElementById("val-ref-c").textContent = act.soilCVal;
+  const diagInstr = document.getElementById("diag-instruction");
+  if (diagInstr) diagInstr.textContent = act.diagInstruction;
+
+  const valRefC = document.getElementById("val-ref-c");
+  if (valRefC) valRefC.textContent = act.soilCVal;
 
   const healthA = document.getElementById("health-probe-a");
-  healthA.textContent = act.healthA;
-  healthA.className = `status-pill ${act.healthA === "HEALTHY" ? "status-pill-green" : act.healthA === "CALIBRATION_DRIFT" ? "status-pill-danger" : "status-pill-warning"}`;
+  if (healthA) {
+    healthA.textContent = act.healthA;
+    healthA.className = `status-pill ${act.healthA === "HEALTHY" ? "status-pill-green" : act.healthA === "CALIBRATION_DRIFT" ? "status-pill-danger" : "status-pill-warning"}`;
+  }
 
   const healthB = document.getElementById("health-probe-b");
-  healthB.textContent = act.healthB;
-  healthB.className = `status-pill ${act.healthB === "HEALTHY" ? "status-pill-green" : act.healthB === "CALIBRATION_DRIFT" ? "status-pill-danger" : "status-pill-warning"}`;
+  if (healthB) {
+    healthB.textContent = act.healthB;
+    healthB.className = `status-pill ${act.healthB === "HEALTHY" ? "status-pill-green" : act.healthB === "CALIBRATION_DRIFT" ? "status-pill-danger" : "status-pill-warning"}`;
+  }
 
-  document.getElementById("val-maintenance-rec").textContent = act.maintRec;
+  const maintRec = document.getElementById("val-maintenance-rec");
+  if (maintRec) maintRec.textContent = act.maintRec;
 
   const btnDiag = document.getElementById("btn-trigger-diag");
-  if (act.showDiagBtn) {
-    btnDiag.classList.remove("hidden");
-  } else {
-    btnDiag.classList.add("hidden");
+  if (btnDiag) {
+    if (act.showDiagBtn) {
+      btnDiag.classList.remove("hidden");
+    } else {
+      btnDiag.classList.add("hidden");
+    }
   }
 
   // Quote
-  document.getElementById("pedagogical-quote").textContent = act.quote;
+  const quoteEl = document.getElementById("pedagogical-quote");
+  if (quoteEl) quoteEl.textContent = act.quote;
 
   // Render Timeline
   renderTimeline();
@@ -540,6 +606,7 @@ function triggerActiveDiagnostic() {
 
 function renderTimeline() {
   const track = document.getElementById("timeline-track");
+  if (!track) return;
   track.innerHTML = "";
 
   const acts = getCurrentActList();
@@ -562,24 +629,40 @@ function renderTimeline() {
     track.appendChild(node);
   });
 
-  document.getElementById("rec-head-count").textContent = `${currentAct} of ${acts.length} Events Committed`;
+  const headCount = document.getElementById("rec-head-count");
+  if (headCount) headCount.textContent = `${currentAct} of ${acts.length} Events Committed`;
 }
 
 // Modal inspection
 function openModal(act) {
-  document.getElementById("modal-title").textContent = `Event E0000${act.id} · ${act.eventType}`;
-  document.getElementById("modal-time").textContent = `${act.time} (Logical Time)`;
-  document.getElementById("modal-hash").textContent = `${act.hash} (SHA-256 Digest)`;
-  document.getElementById("modal-hardware").textContent = `${act.hardwareId} (${act.platform})`;
-  document.getElementById("modal-authority").textContent = "A0 (Epoch 0 - Genesis Lineage)";
-  document.getElementById("modal-epistemic").textContent = `RCC ${act.rccState} → Directive ${act.assurance}`;
-  document.getElementById("modal-desc").textContent = act.quote;
+  const modalTitle = document.getElementById("modal-title");
+  if (modalTitle) modalTitle.textContent = `Event E0000${act.id} · ${act.eventType}`;
 
-  document.getElementById("event-modal").classList.remove("hidden");
+  const modalTime = document.getElementById("modal-time");
+  if (modalTime) modalTime.textContent = `${act.time} (Logical Time)`;
+
+  const modalHash = document.getElementById("modal-hash");
+  if (modalHash) modalHash.textContent = `${act.hash} (SHA-256 Digest)`;
+
+  const modalHw = document.getElementById("modal-hardware");
+  if (modalHw) modalHw.textContent = `${act.hardwareId} (${act.platform})`;
+
+  const modalAuth = document.getElementById("modal-authority");
+  if (modalAuth) modalAuth.textContent = "A0 (Epoch 0 - Genesis Lineage)";
+
+  const modalEpistemic = document.getElementById("modal-epistemic");
+  if (modalEpistemic) modalEpistemic.textContent = `RCC ${act.rccState} → Directive ${act.assurance}`;
+
+  const modalDesc = document.getElementById("modal-desc");
+  if (modalDesc) modalDesc.textContent = act.quote;
+
+  const eventModal = document.getElementById("event-modal");
+  if (eventModal) eventModal.classList.remove("hidden");
 }
 
 function closeModal() {
-  document.getElementById("event-modal").classList.add("hidden");
+  const eventModal = document.getElementById("event-modal");
+  if (eventModal) eventModal.classList.add("hidden");
 }
 
 // Auto-tour
@@ -588,13 +671,17 @@ function toggleAutoTour() {
   if (tourInterval) {
     clearInterval(tourInterval);
     tourInterval = null;
-    btn.textContent = "▶ Start Auto-Tour";
-    btn.style.background = "";
-    btn.style.color = "";
+    if (btn) {
+      btn.textContent = "▶ Start Auto-Tour";
+      btn.style.background = "";
+      btn.style.color = "";
+    }
   } else {
-    btn.textContent = "⏸ Pause Auto-Tour";
-    btn.style.background = "var(--accent)";
-    btn.style.color = "var(--bg)";
+    if (btn) {
+      btn.textContent = "⏸ Pause Auto-Tour";
+      btn.style.background = "var(--accent)";
+      btn.style.color = "var(--bg)";
+    }
 
     let acts = getCurrentActList();
     let nextAct = 1;
@@ -623,6 +710,6 @@ async function loadFactualEvents() {
 
 // Initialize
 window.addEventListener("DOMContentLoaded", async () => {
-  await loadFactualEvents();
   switchTour("A");
+  await loadFactualEvents();
 });
