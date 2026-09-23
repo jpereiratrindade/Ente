@@ -52,9 +52,14 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação Completa (16 Testes)
+### Executar a Suíte de Verificação Completa (17 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
+```
+
+### Instalação da Biblioteca e Exportação CMake
+```bash
+cmake --install build --prefix /usr/local
 ```
 
 ### Executar a Demonstração da Vertical Unificada
@@ -67,7 +72,7 @@ ctest --test-dir build --output-on-failure --verbose
 ./build/test_experiment_001
 ```
 
-### Executar a Bateria de Chaos & Injeção de Falhas (CHAOS-001..004)
+### Executar a Bateria de Chaos & Injeção de Falhas (CHAOS-001..006)
 ```bash
 ./build/test_chaos_invariants
 ```
@@ -92,7 +97,7 @@ ctest --test-dir build --output-on-failure --verbose
 ./build/clinical_lab
 ```
 
-### Executar a Aplicação ENTE Field Station & Observatory (ENTE-VISUAL-001)
+### Executar a Aplicação ENTE Field Station & Observatory (ENTE-CASELAB-003)
 ```bash
 ./build/ente_field_station
 ```
@@ -102,6 +107,7 @@ ctest --test-dir build --output-on-failure --verbose
 
 ## 4. Documentação e Casos de Uso
 
+- **Manual de Desenvolvimento & Integração de Domínios**: [`docs/DEVELOPER_GUIDE.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/DEVELOPER_GUIDE.md) *(Novo!)*
 - **Website Interativo & Manifesto**: [`docs/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/index.html) *(Deploy no GitHub Pages)*
 - **Aplicação Visual ENTE Observatory (Field Station)**: [`examples/field-station/web/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/web/index.html)
 - **Relatório Formal de Demonstração & Falsificação**: [`docs/ENTE-FORMAL-REPORT-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-FORMAL-REPORT-v0.1.0.md)

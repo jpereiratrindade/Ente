@@ -7,25 +7,53 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  matrix-build-and-test:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC 14 (Debug)
+            compiler: g++-14
+            pkg: g++-14
+            build_type: Debug
+            enable_sanitizers: OFF
+
+          - name: GCC 14 (ASan + LSan)
+            compiler: g++-14
+            pkg: g++-14
+            build_type: Debug
+            enable_sanitizers: ON
+
+          - name: Clang 18 (C++26)
+            compiler: clang++-18
+            pkg: clang-18
+            build_type: Release
+            enable_sanitizers: OFF
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install Build Dependencies
+    - name: Install Build Dependencies & Compiler
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build g++-14
+        sudo apt-get install -y cmake ninja-build ${{ matrix.pkg }}
 
     - name: Configure CMake
       run: |
         cmake -S . -B build -G Ninja \
-          -DCMAKE_CXX_COMPILER=g++-14 \
-          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DENABLE_SANITIZERS=${{ matrix.enable_sanitizers }}
 
     - name: Build ENTE-0
       run: cmake --build build
 
-    - name: Execute Constitutive Test Suite (CTest)
+    - name: Execute Constitutive Test Suite (17 Tests)
       run: ctest --test-dir build --output-on-failure --verbose
+
+    - name: Verify CMake Package Installation & Export
+      run: |
+        cmake --install build --prefix /tmp/ente_install
+        test -f /tmp/ente_install/lib64/cmake/Ente/EnteConfig.cmake || test -f /tmp/ente_install/lib/cmake/Ente/EnteConfig.cmake

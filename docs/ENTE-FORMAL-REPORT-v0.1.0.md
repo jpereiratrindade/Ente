@@ -7,15 +7,15 @@
 
 Este documento estabelece o relatório formal de verificação empírica, estrutural e de integridade do **ENTE-0**, a primeira realização mínima candidata em C++26 da categoria ontológica **ENTE** (*Entidade com Núcleo Télico e Epistêmico*).
 
-O sistema foi submetido a uma suíte de 16 baterias de testes automatizados compreendendo:
+O sistema foi submetido a uma suíte de 17 baterias de testes automatizados compreendendo:
 1. **Verificação de Invariantes Constitutivos (C1..C14)**;
 2. **Benchmark Estocástico de Monte Carlo (5.000 ensaios)** contra 4 arquiteturas de referência (baselines);
 3. **Teste de Longevidade & Escalabilidade Constitutiva (10.000 acontecimentos contínuos / 20.002 eventos REC)**;
 4. **Bateria Adversarial de Injeção de Caos (CHAOS-001..006)**;
-5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat e Bomba de Infusão Crítica em UTI);
+5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat, Bomba de Infusão Crítica em UTI e Estação de Campo / Irrigação);
 6. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
 
-**Status de Verificação:** 16/16 baterias de testes executáveis aprovadas com zero vazamentos de memória (0 bytes vazados).
+**Status de Verificação:** 17/17 baterias de testes executáveis aprovadas com zero vazamentos de memória (0 bytes vazados).
 
 ---
 
@@ -90,19 +90,20 @@ template <OperationalDomainConcept DomainT>
 class GenericAgentWithEnte;
 ```
 
-Demonstrado com conformidade integral em dois domínios sintéticos de bancada experimental:
-* **`VehicleDomain` (Robótica Veicular Sintética)**: Prevenção de partida sobre anomalia próxima à roda (caso KitKat).
-* **`InfusionPumpDomain` (Bancada de Infusão Crítica em UTI)**: Prevenção de hiperdosagem vasoativa diante de divergência oximétrica/pressórica. *Ambiente sintético experimental; não constitui dispositivo médico homologado.*
+Demonstrado com conformidade integral em três domínios sintéticos de bancada experimental:
+* **`VehicleDomain` (Robótica Veicular Sintética — Case Lab 001)**: Prevenção de partida sobre anomalia próxima à roda (caso KitKat).
+* **`InfusionPumpDomain` (Bancada de Infusão Crítica em UTI — Case Lab 002)**: Prevenção de hiperdosagem vasoativa diante de divergência oximétrica/pressórica. *Ambiente sintético experimental; não constitui dispositivo médico homologado.*
+* **`FieldStationDomain` (Estação de Campo & Irrigação de Precisão — Case Lab 003)**: Resolução epistêmica ativa, SafeHold em caso de anomalia e retomada de ação fundamentada.
 
 ---
 
 ## 6. Verificação de Memória com AddressSanitizer & LeakSanitizer
 
-Toda a suíte de 16 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
+Toda a suíte de 17 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
 * **Memory Leaks**: `0 bytes` vazados.
 * **Buffer Overflows**: `0 ocorrências`.
 * **Use-After-Free / Double-Free**: `0 ocorrências`.
-* **Resultado**: `16/16 Passed` sob instrumentação total.
+* **Resultado**: `17/17 Passed` sob instrumentação total.
 
 ---
 

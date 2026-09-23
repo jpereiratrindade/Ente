@@ -19,6 +19,9 @@ if(ENABLE_SANITIZERS)
     add_link_options(-fsanitize=address)
 endif()
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 # Core library
 add_library(ente_core
     src/core/hash.cpp
@@ -38,7 +41,7 @@ add_library(ente_core
 
 target_include_directories(ente_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 # Enable testing
@@ -128,6 +131,45 @@ set_tests_properties(test_chaos_invariants PROPERTIES LABELS "chaos;security")
 set_tests_properties(test_case_lab PROPERTIES LABELS "case_lab;domain")
 set_tests_properties(test_clinical_lab PROPERTIES LABELS "clinical_lab;domain")
 set_tests_properties(test_field_station PROPERTIES LABELS "field_station;visual;domain")
+
+# ==============================================================================
+# Installation & CMake Packaging Export
+# ==============================================================================
+install(TARGETS ente_core
+    EXPORT EnteTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(EXPORT EnteTargets
+    FILE EnteTargets.cmake
+    NAMESPACE Ente::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Ente
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/EnteConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EnteConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/EnteConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Ente
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/EnteConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/EnteConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Ente
+)
 
 
 
