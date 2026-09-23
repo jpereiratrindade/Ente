@@ -2,6 +2,7 @@
 #include "ente/core/hash.hpp"
 #include <format>
 #include <sstream>
+#include <type_traits>
 #include <unordered_set>
 
 namespace ente::realization {
@@ -336,18 +337,22 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_fi
     return recovered;
 }
 
-std::expected<void, core::EnteError> EnteRealization::enable_durable_journal(std::string_view filepath) {
+std::expected<void, core::EnteError> EnteRealization::enable_durable_journal(
+    std::string_view filepath,
+    history::PersistenceOptions options
+) {
     if (!genesis_service_.has_genesis() || rec_.empty()) {
         return std::unexpected(core::EnteError::GenesisNotEstablished);
     }
     if (filepath.empty()) {
         return std::unexpected(core::EnteError::HistoryGap);
     }
-    auto persisted = rec_.save_to_file(filepath);
+    auto persisted = rec_.save_to_file(filepath, options);
     if (!persisted.has_value()) {
         return std::unexpected(persisted.error());
     }
     journal_path_ = std::string(filepath);
+    journal_options_ = options;
     return {};
 }
 
@@ -572,16 +577,20 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::append_a
         return std::unexpected(core::EnteError::InvalidActionTransition);
     }
 
+    // Build the next REC generation in isolation. The live in-memory state is
+    // changed only after the durable commit point has been crossed.
+    auto candidate_rec = rec_;
+
     const auto& id = identity().id;
     std::string current_auth_id = authority_.empty() ? "auth-root" : std::string(authority_.active_epoch().authorized_authority.view());
     std::string current_epoch_id = authority_.empty() ? "epoch-0" : std::string(authority_.active_epoch().epoch_id.view());
 
     std::vector<core::EventId> preds;
-    if (!rec_.empty()) {
-        preds.push_back(rec_.head().id);
+    if (!candidate_rec.empty()) {
+        preds.push_back(candidate_rec.head().id);
     }
 
-    auto event = rec_.create_event(
+    auto event = candidate_rec.create_event(
         kind,
         id,
         time,
@@ -593,7 +602,7 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::append_a
     );
 
     const auto event_id = event.id;
-    auto append_result = rec_.append(std::move(event));
+    auto append_result = candidate_rec.append(std::move(event));
     if (!append_result.has_value()) {
         return std::unexpected(append_result.error());
     }
@@ -603,14 +612,27 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::append_a
         .last_event_id = event_id,
         .updated_at = time
     };
-    action_transactions_.insert_or_assign(key, state);
+    auto candidate_transactions = action_transactions_;
+    candidate_transactions.insert_or_assign(key, state);
+
+    static_assert(std::is_nothrow_move_assignable_v<history::RecoverableHistory>);
+    static_assert(std::is_nothrow_move_assignable_v<decltype(action_transactions_)>);
+    const auto commit_candidate = [&]() noexcept {
+        rec_ = std::move(candidate_rec);
+        action_transactions_ = std::move(candidate_transactions);
+    };
 
     if (journal_path_.has_value()) {
-        auto persisted = rec_.save_to_file(*journal_path_);
+        auto persisted = candidate_rec.save_to_file(*journal_path_, journal_options_);
         if (!persisted.has_value()) {
+            if (persisted.error() == core::EnteError::PersistenceCommitUncertain) {
+                commit_candidate();
+            }
             return std::unexpected(persisted.error());
         }
     }
+
+    commit_candidate();
     return state;
 }
 
@@ -725,6 +747,10 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::observe_
         ? "epoch-0"
         : std::string(authority_.active_epoch().epoch_id.view());
 
+    // Observation events and the resulting effect phase form one local
+    // transaction. If persistence fails before atomic replacement, none of
+    // them may remain visible in the live REC.
+    auto rec_before_effect_observations = rec_;
     for (const auto& observation : effect_observations) {
         if (observation.id.empty() ||
             observation.observed_at > time ||
@@ -755,6 +781,7 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::observe_
         );
         auto appended = rec_.append(std::move(observation_event));
         if (!appended.has_value()) {
+            rec_ = std::move(rec_before_effect_observations);
             return std::unexpected(appended.error());
         }
     }
@@ -762,12 +789,17 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::observe_
     payload.phase = next_phase;
     payload.post_state = std::string(post_state);
     payload.detail = std::string(effect);
-    return append_action_phase(
+    auto result = append_action_phase(
         std::move(payload),
         history::EventKind::EffectObservation,
         time,
         std::move(evidence_refs)
     );
+    if (!result.has_value() &&
+        result.error() != core::EnteError::PersistenceCommitUncertain) {
+        rec_ = std::move(rec_before_effect_observations);
+    }
+    return result;
 }
 
 std::optional<ActionTransactionState> EnteRealization::action_transaction(

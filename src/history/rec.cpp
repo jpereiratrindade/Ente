@@ -276,13 +276,17 @@ bool sync_path_to_storage(const std::string& path) noexcept {
 
 bool sync_parent_directory(const std::string& path) noexcept {
 #if defined(__unix__) || defined(__APPLE__)
-    std::filesystem::path parent = std::filesystem::path(path).parent_path();
-    if (parent.empty()) parent = ".";
-    const int fd = ::open(parent.c_str(), O_RDONLY | O_DIRECTORY);
-    if (fd < 0) return false;
-    const bool synced = ::fsync(fd) == 0;
-    const bool closed = ::close(fd) == 0;
-    return synced && closed;
+    try {
+        std::filesystem::path parent = std::filesystem::path(path).parent_path();
+        if (parent.empty()) parent = ".";
+        const int fd = ::open(parent.c_str(), O_RDONLY | O_DIRECTORY);
+        if (fd < 0) return false;
+        const bool synced = ::fsync(fd) == 0;
+        const bool closed = ::close(fd) == 0;
+        return synced && closed;
+    } catch (...) {
+        return false;
+    }
 #else
     (void)path;
     return true;
@@ -303,6 +307,7 @@ std::expected<void, core::EnteError> RecoverableHistory::save_to_file(
     std::string_view filepath,
     PersistenceOptions options
 ) const noexcept {
+    bool target_replaced = false;
     try {
         std::string target_path(filepath);
         std::string tmp_path = target_path + ".tmp";
@@ -371,15 +376,23 @@ std::expected<void, core::EnteError> RecoverableHistory::save_to_file(
             std::filesystem::remove(tmp_path, cleanup_error);
             return std::unexpected(core::EnteError::PersistenceFailure);
         }
+        target_replaced = true;
 
         if (!operation_enabled(options, PersistenceOperation::SyncParentDirectory) ||
             !sync_parent_directory(target_path)) {
-            return std::unexpected(core::EnteError::PersistenceFailure);
+            // The atomic replacement already happened. The new generation is
+            // visible in this process, but its survival across power loss is
+            // unknown until the parent directory is durably synchronized.
+            return std::unexpected(core::EnteError::PersistenceCommitUncertain);
         }
 
         return {};
     } catch (...) {
-        return std::unexpected(core::EnteError::PersistenceFailure);
+        return std::unexpected(
+            target_replaced
+                ? core::EnteError::PersistenceCommitUncertain
+                : core::EnteError::PersistenceFailure
+        );
     }
 }
 

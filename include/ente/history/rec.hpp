@@ -19,7 +19,8 @@ enum class PersistenceOperation : uint8_t {
 
 // An empty options object is the production path. The hook is invoked
 // immediately before each durability operation; returning false injects that
-// operation's failure for deterministic recovery tests.
+// operation's failure for deterministic recovery tests. If context is used,
+// the caller must keep it alive while any realization retains these options.
 struct PersistenceOptions {
     using BeforeOperationHook = bool (*)(PersistenceOperation, void*) noexcept;
 

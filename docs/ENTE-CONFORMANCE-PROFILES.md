@@ -50,7 +50,7 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 | Distinção autorização/execução/efeito | `VERIFIED` | `test_action_transaction` | Confirmação depende da qualidade da telemetria fornecida |
 | Recuperação de ação interrompida | `VERIFIED` | Crash POSIX após `PREPARED`, `DISPATCHED`, `ACKNOWLEDGED` e `EFFECT_UNCONFIRMED` retorna como `RECOVERY_REQUIRED`; `CONFIRMED` e `FAILED` permanecem terminais | REC precisa ter sido persistido; encerramento de processo não equivale a power loss físico |
 | Payload transacional canônico | `VERIFIED` | Round-trip com delimitadores e newline | Não é ainda um schema externo padronizado |
-| Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Journal opcional persiste cada fase antes do retorno; falhas injetadas e encerramento abrupto de processo nos limites de fsync/rename/fsync do diretório | A garantia exige journal configurado; power loss físico e semântica do hardware/filesystem ainda não foram ensaiados |
+| Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Commit point mantém REC/índice inalterados em falha anterior ao `rename`; dispatch não executa o domínio sem registro durável; falha posterior ao `rename` retorna `PersistenceCommitUncertain` | A garantia exige journal configurado; power loss físico e semântica do hardware/filesystem ainda não foram ensaiados |
 | REC autenticado | `OUT_OF_SCOPE` na versão atual | Nenhuma assinatura assimétrica por evento | Hash-chain fornece integridade, não autenticidade |
 | Atestação de hardware | `SIMULATED` | Fixture RATS local | Sem TPM/TEE real |
 | C11 — linhagem distribuída | `NOT_APPLICABLE` | Perfil mono-nó | Obrigatório apenas em `ENTE-DISTRIBUTED` |
@@ -64,6 +64,7 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 3. **One source of truth:** REC, `DecisionTrace`, estado operacional e Observatory derivam da mesma transição factual.
 4. **No silent promotion:** recovery nunca promove `DISPATCHED`, `ACKNOWLEDGED` ou `EFFECT_UNCONFIRMED` para `CONFIRMED`.
 5. **Profile applicability:** `NOT_APPLICABLE` não reduz conformidade quando justificado pelo perfil.
+6. **Explicit commit point:** erro anterior ao `rename` não avança REC nem índice em memória; erro de sincronização posterior ao `rename` é estado de commit incerto, nunca rollback presumido.
 
 ## 5. Próximo gate
 

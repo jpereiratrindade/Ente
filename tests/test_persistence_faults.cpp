@@ -75,7 +75,10 @@ void test_operation_failure(
     };
     const auto failed_save = updated.save_to_file(path, options);
     ENTE_TEST_ASSERT(!failed_save.has_value());
-    ENTE_TEST_ASSERT(failed_save.error() == EnteError::PersistenceFailure);
+    const auto expected_error = operation == PersistenceOperation::SyncParentDirectory
+        ? EnteError::PersistenceCommitUncertain
+        : EnteError::PersistenceFailure;
+    ENTE_TEST_ASSERT(failed_save.error() == expected_error);
     ENTE_TEST_ASSERT(plan.calls > 0);
     ENTE_TEST_ASSERT(!std::filesystem::exists(path + ".tmp"));
 

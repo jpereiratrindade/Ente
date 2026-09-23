@@ -7,6 +7,23 @@
 
 namespace {
 
+struct JournalFaultPlan {
+    ente::history::PersistenceOperation operation;
+    bool armed{false};
+    size_t matching_calls{0};
+    size_t fail_on_call{1};
+};
+
+bool fail_journal_operation(
+    ente::history::PersistenceOperation operation,
+    void* context
+) noexcept {
+    auto& plan = *static_cast<JournalFaultPlan*>(context);
+    if (!plan.armed || operation != plan.operation) return true;
+    ++plan.matching_calls;
+    return plan.matching_calls != plan.fail_on_call;
+}
+
 enum class TestAction : uint8_t { Hold, Start };
 enum class TestState : uint8_t { Idle, Running, SafeHold };
 
@@ -246,6 +263,272 @@ void test_mutable_history_forces_full_audit_before_action() {
     ENTE_TEST_ASSERT(realization.domain().is_action_suspended());
 }
 
+void test_precommit_failure_does_not_advance_live_state() {
+    const std::string path = "action_transaction_precommit_failure.rec";
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+
+    JournalFaultPlan plan{
+        .operation = ente::history::PersistenceOperation::ReplaceTarget
+    };
+    const ente::history::PersistenceOptions options{
+        .before_operation = fail_journal_operation,
+        .context = &plan
+    };
+
+    ente::realization::EnteRealization process;
+    ENTE_TEST_ASSERT(process.genesis(ente::core::IdentityId("ente-precommit-failure")).has_value());
+    ENTE_TEST_ASSERT(process.enable_durable_journal(path, options).has_value());
+    const auto history_size_before = process.history().size();
+    const auto head_before = process.history().head_digest();
+
+    plan.armed = true;
+    const auto failed = process.prepare_action(
+        1,
+        "START",
+        "START",
+        ente::assurance::SafetyDirective::AllowAction,
+        "IDLE"
+    );
+    ENTE_TEST_ASSERT(!failed.has_value());
+    ENTE_TEST_ASSERT(failed.error() == ente::core::EnteError::PersistenceFailure);
+    ENTE_TEST_ASSERT_EQ(process.history().size(), history_size_before);
+    ENTE_TEST_ASSERT_EQ(process.history().head_digest(), head_before);
+
+    const auto persisted = ente::history::RecoverableHistory::load_from_file(path);
+    ENTE_TEST_ASSERT(persisted.has_value());
+    ENTE_TEST_ASSERT_EQ(persisted->size(), history_size_before);
+    ENTE_TEST_ASSERT_EQ(persisted->head_digest(), head_before);
+
+    plan.armed = false;
+    ENTE_TEST_ASSERT(process.prepare_action(
+        1,
+        "START",
+        "START",
+        ente::assurance::SafetyDirective::AllowAction,
+        "IDLE"
+    ).has_value());
+
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+}
+
+void test_effect_observation_rolls_back_as_one_unit() {
+    const std::string path = "action_effect_precommit_failure.rec";
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+
+    JournalFaultPlan plan{
+        .operation = ente::history::PersistenceOperation::ReplaceTarget
+    };
+    const ente::history::PersistenceOptions options{
+        .before_operation = fail_journal_operation,
+        .context = &plan
+    };
+
+    ente::realization::EnteRealization process;
+    ENTE_TEST_ASSERT(process.genesis(ente::core::IdentityId("ente-effect-rollback")).has_value());
+    ENTE_TEST_ASSERT(process.enable_durable_journal(path, options).has_value());
+    const auto prepared = process.prepare_action(
+        1,
+        "START",
+        "START",
+        ente::assurance::SafetyDirective::AllowAction,
+        "IDLE"
+    );
+    ENTE_TEST_ASSERT(prepared.has_value());
+    ENTE_TEST_ASSERT(process.dispatch_action(prepared->payload.action_id, 1).has_value());
+    ENTE_TEST_ASSERT(process.acknowledge_action(
+        prepared->payload.action_id,
+        1,
+        "START",
+        true,
+        "RUNNING"
+    ).has_value());
+
+    const auto history_size_before = process.history().size();
+    const auto head_before = process.history().head_digest();
+    plan.armed = true;
+    const auto failed = process.observe_action_effect(
+        prepared->payload.action_id,
+        2,
+        true,
+        "SHAFT_MOTION_OBSERVED",
+        "RUNNING",
+        {{
+            .id = ente::core::EvidenceId("EV-ROLLBACK-EFFECT"),
+            .source = "independent_motion_sensor",
+            .subject = "shaft_motion",
+            .value = "running",
+            .observed_at = 2,
+            .status = ente::epistemic::EpistemicStatus::Observed
+        }}
+    );
+    ENTE_TEST_ASSERT(!failed.has_value());
+    ENTE_TEST_ASSERT(failed.error() == ente::core::EnteError::PersistenceFailure);
+    ENTE_TEST_ASSERT_EQ(process.history().size(), history_size_before);
+    ENTE_TEST_ASSERT_EQ(process.history().head_digest(), head_before);
+    const auto transaction = process.action_transaction(prepared->payload.action_id);
+    ENTE_TEST_ASSERT(transaction.has_value());
+    ENTE_TEST_ASSERT(transaction->payload.phase == ente::history::ActionPhase::Acknowledged);
+
+    const auto persisted = ente::history::RecoverableHistory::load_from_file(path);
+    ENTE_TEST_ASSERT(persisted.has_value());
+    ENTE_TEST_ASSERT_EQ(persisted->size(), history_size_before);
+    ENTE_TEST_ASSERT_EQ(persisted->head_digest(), head_before);
+
+    plan.armed = false;
+    ENTE_TEST_ASSERT(process.observe_action_effect(
+        prepared->payload.action_id,
+        2,
+        true,
+        "SHAFT_MOTION_OBSERVED",
+        "RUNNING",
+        {{
+            .id = ente::core::EvidenceId("EV-ROLLBACK-EFFECT"),
+            .source = "independent_motion_sensor",
+            .subject = "shaft_motion",
+            .value = "running",
+            .observed_at = 2,
+            .status = ente::epistemic::EpistemicStatus::Observed
+        }}
+    ).has_value());
+
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+}
+
+void test_postrename_failure_is_explicitly_uncertain() {
+    const std::string path = "action_transaction_commit_uncertain.rec";
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+
+    JournalFaultPlan plan{
+        .operation = ente::history::PersistenceOperation::SyncParentDirectory
+    };
+    const ente::history::PersistenceOptions options{
+        .before_operation = fail_journal_operation,
+        .context = &plan
+    };
+
+    ente::realization::EnteRealization process;
+    ENTE_TEST_ASSERT(process.genesis(ente::core::IdentityId("ente-commit-uncertain")).has_value());
+    ENTE_TEST_ASSERT(process.enable_durable_journal(path, options).has_value());
+    const auto history_size_before = process.history().size();
+
+    plan.armed = true;
+    const auto uncertain = process.prepare_action(
+        1,
+        "START",
+        "START",
+        ente::assurance::SafetyDirective::AllowAction,
+        "IDLE"
+    );
+    ENTE_TEST_ASSERT(!uncertain.has_value());
+    ENTE_TEST_ASSERT(uncertain.error() == ente::core::EnteError::PersistenceCommitUncertain);
+    ENTE_TEST_ASSERT_EQ(process.history().size(), history_size_before + 1);
+
+    const auto payload = ente::history::parse_action_transaction(
+        process.history().head().payload_content
+    );
+    ENTE_TEST_ASSERT(payload.has_value());
+    ENTE_TEST_ASSERT(payload->phase == ente::history::ActionPhase::Authorized);
+    const auto transaction = process.action_transaction(payload->action_id);
+    ENTE_TEST_ASSERT(transaction.has_value());
+    ENTE_TEST_ASSERT(transaction->payload.phase == ente::history::ActionPhase::Authorized);
+
+    const auto persisted = ente::history::RecoverableHistory::load_from_file(path);
+    ENTE_TEST_ASSERT(persisted.has_value());
+    ENTE_TEST_ASSERT_EQ(persisted->size(), process.history().size());
+    ENTE_TEST_ASSERT_EQ(persisted->head_digest(), process.history().head_digest());
+
+    const auto recovered = ente::realization::EnteRealization::recover_from_file(path);
+    ENTE_TEST_ASSERT(recovered.has_value());
+    const auto recovered_transaction = recovered->action_transaction(payload->action_id);
+    ENTE_TEST_ASSERT(recovered_transaction.has_value());
+    ENTE_TEST_ASSERT(
+        recovered_transaction->payload.phase == ente::history::ActionPhase::RecoveryRequired
+    );
+    ENTE_TEST_ASSERT(recovered->domain().is_action_suspended());
+
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+}
+
+void test_dispatch_must_be_durable_before_domain_side_effect() {
+    const std::string path = "action_dispatch_precommit_failure.rec";
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+
+    JournalFaultPlan plan{
+        .operation = ente::history::PersistenceOperation::ReplaceTarget,
+        .fail_on_call = 3
+    };
+    const ente::history::PersistenceOptions options{
+        .before_operation = fail_journal_operation,
+        .context = &plan
+    };
+    ente::domain::GenericAgentWithEnte<TestDomain> agent(
+        "dispatch-durability-boundary",
+        TestDomain{},
+        std::nullopt,
+        path,
+        options
+    );
+
+    plan.armed = true;
+    const auto outcome = agent.decide_action_detailed(
+        1,
+        {{
+            .id = ente::core::EvidenceId("EV-DISPATCH-READY"),
+            .source = "ready_sensor",
+            .subject = "machine_ready",
+            .value = "true",
+            .observed_at = 1,
+            .status = ente::epistemic::EpistemicStatus::Observed
+        }},
+        TestAction::Start,
+        {
+            .subject = "machine_ready",
+            .proposition = "Machine is ready to start",
+            .step_desc = "dispatch durability boundary"
+        }
+    );
+
+    ENTE_TEST_ASSERT(outcome.is_safe_hold);
+    ENTE_TEST_ASSERT(outcome.executed_action == TestAction::Hold);
+    ENTE_TEST_ASSERT(outcome.audit_error.has_value());
+    ENTE_TEST_ASSERT(outcome.audit_error == ente::core::EnteError::PersistenceFailure);
+    ENTE_TEST_ASSERT(outcome.action_transaction.has_value());
+    ENTE_TEST_ASSERT(
+        outcome.action_transaction->payload.phase == ente::history::ActionPhase::Prepared
+    );
+    ENTE_TEST_ASSERT(agent.domain().current_state() == TestState::SafeHold);
+    ENTE_TEST_ASSERT(agent.domain().active_action() == TestAction::Hold);
+
+    const auto persisted = ente::history::RecoverableHistory::load_from_file(path);
+    ENTE_TEST_ASSERT(persisted.has_value());
+    bool saw_prepared = false;
+    bool saw_dispatched = false;
+    ente::core::ActionTransactionId action_id;
+    for (const auto& event : persisted->events()) {
+        if (!event.payload_content.starts_with("ENTE_ACTION_TX_V1")) continue;
+        const auto payload = ente::history::parse_action_transaction(event.payload_content);
+        ENTE_TEST_ASSERT(payload.has_value());
+        action_id = payload->action_id;
+        saw_prepared |= payload->phase == ente::history::ActionPhase::Prepared;
+        saw_dispatched |= payload->phase == ente::history::ActionPhase::Dispatched;
+    }
+    ENTE_TEST_ASSERT(saw_prepared);
+    ENTE_TEST_ASSERT(!saw_dispatched);
+    const auto transaction = agent.ente().action_transaction(action_id);
+    ENTE_TEST_ASSERT(transaction.has_value());
+    ENTE_TEST_ASSERT(transaction->payload.phase == ente::history::ActionPhase::Prepared);
+
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+}
+
 } // namespace
 
 int main() {
@@ -253,6 +536,10 @@ int main() {
     test_recovery_marks_dispatched_action_unknown();
     test_canonical_payload_round_trip();
     test_mutable_history_forces_full_audit_before_action();
-    std::cout << "[PASS] test_action_transaction: factual phases, effect distinction, recovery and canonical payload verified.\n";
+    test_precommit_failure_does_not_advance_live_state();
+    test_effect_observation_rolls_back_as_one_unit();
+    test_postrename_failure_is_explicitly_uncertain();
+    test_dispatch_must_be_durable_before_domain_side_effect();
+    std::cout << "[PASS] test_action_transaction: factual phases, durable commit point, side-effect boundary and recovery verified.\n";
     return 0;
 }

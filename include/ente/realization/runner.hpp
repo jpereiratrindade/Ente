@@ -82,7 +82,10 @@ public:
 
     // Enables synchronous snapshot journaling. Once enabled, every factual
     // action phase is fsync'ed before the transition is returned to the caller.
-    [[nodiscard]] std::expected<void, core::EnteError> enable_durable_journal(std::string_view filepath);
+    [[nodiscard]] std::expected<void, core::EnteError> enable_durable_journal(
+        std::string_view filepath,
+        history::PersistenceOptions options = {}
+    );
     [[nodiscard]] bool has_durable_journal() const noexcept { return journal_path_.has_value(); }
 
     [[nodiscard]] std::expected<DecisionTrace, core::EnteError> step(
@@ -166,6 +169,7 @@ private:
     history::RecoverableHistory rec_;
     std::unordered_map<std::string, ActionTransactionState> action_transactions_;
     std::optional<std::string> journal_path_;
+    history::PersistenceOptions journal_options_;
     core::EventScopedPRNG prng_;
     std::optional<epistemic::Interpretation> current_interpretation_;
     rcc::ContextReassessment rcc_;

@@ -11,7 +11,7 @@
 
 namespace ente::domain {
 
-// C++26 Concept for an Operational Domain that can be governed by an ENTE
+// C++23 concept for an Operational Domain that can be governed by an ENTE
 template <typename T>
 concept OperationalDomainConcept = requires(T domain, typename T::ActionType action, assurance::SafetyDirective directive) {
     typename T::ActionType;
@@ -59,7 +59,8 @@ public:
         std::string_view agent_id,
         DomainT domain = DomainT{},
         std::optional<identity::MaterialAnchor> initial_anchor = std::nullopt,
-        std::optional<std::string> journal_path = std::nullopt
+        std::optional<std::string> journal_path = std::nullopt,
+        history::PersistenceOptions journal_options = {}
     )
         : id_(agent_id)
         , domain_(std::move(domain))
@@ -70,7 +71,7 @@ public:
             throw std::runtime_error("Failed to establish ENTE Genesis for Generic Agent");
         }
         if (journal_path.has_value()) {
-            auto journal_result = ente_.enable_durable_journal(*journal_path);
+            auto journal_result = ente_.enable_durable_journal(*journal_path, journal_options);
             if (!journal_result.has_value()) {
                 throw std::runtime_error("Failed to establish ENTE durable journal");
             }

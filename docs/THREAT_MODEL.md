@@ -28,7 +28,7 @@ Para evitar alegações impossíveis ou presunções de segurança injustificada
 
 | Nível | Classe de Ameaça | Descrição e Vetor de Falha | Mitigação / Garantia no ENTE-0 | Limite de Defesa |
 | :--- | :--- | :--- | :--- | :--- |
-| **T0** | **Falha Acidental** | Bit-flips em RAM, crash de processo, perda súbita de energia durante E/S. | Protocolo de ação recuperável, substituição atômica (`save_to_file`) e fsync em plataformas POSIX. | Parcialmente mitigado; garantias dependem do filesystem, hardware e journal configurado. |
+| **T0** | **Falha Acidental** | Bit-flips em RAM, crash de processo, perda súbita de energia durante E/S. | Protocolo de ação recuperável, commit point conjunto de REC/índice, substituição atômica e fsync POSIX; falha após `rename` é reportada como commit incerto. | Parcialmente mitigado; garantias dependem do filesystem, hardware e journal configurado. |
 | **T1** | **Corrupção de Armazenamento** | Truncamento no disco, falha de setor, blocos corrompidos no log histórico. | Detecção de truncamento na inicialização, checksum SHA-256 por evento. | Recuperação segura em `SafeHold`. |
 | **T2** | **Atacante com Acesso Offline ao REC** | Invasor que modifica eventos históricos no arquivo em disco enquanto o processo está inativo. | Hash-chain SHA-256 linear + RIT causal + verificação de integridade C10/C12. | Detecta adulteração; sem chave, não impede recomputação de hashes locais. |
 | **T3** | **Atacante Controla o Processo ENTE** | Código hostil injetado no espaço de endereço de memória do processo ativo. | Ancoragem de integridade de Gênese imutável e verificadores constitutivos externos. | O processo comprometido pode falsificar deliberações se possuir a chave local. |
