@@ -64,3 +64,12 @@ jobs:
       run: |
         cmake --install build --prefix /tmp/ente_install
         test -f /tmp/ente_install/lib64/cmake/Ente/EnteConfig.cmake || test -f /tmp/ente_install/lib/cmake/Ente/EnteConfig.cmake
+
+    - name: Test Real External CMake Consumer
+      run: |
+        cmake -S examples/consumer-package-test -B /tmp/ente_consumer_build -G Ninja \
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler }} \
+          -DCMAKE_CXX_FLAGS="${{ matrix.cxx_flags }}" \
+          -DCMAKE_PREFIX_PATH=/tmp/ente_install
+        cmake --build /tmp/ente_consumer_build
+        /tmp/ente_consumer_build/ente_consumer_test

@@ -94,7 +94,7 @@ O programa de **Semantic Integrity Closure** organiza a promoção formal atrav�
 | **G2 — Canonical Biography** | Serialização canônica length-prefixed unificada para hash, assinatura, persistência e recovery | `VERIFIED` |
 | **G3 — Evidence-Based Constitution** | C1–C10, C12 e C14 comprovam proveniência factual e encadeamento causal sem parsing textual | `VERIFIED` |
 | **G4 — Authenticated Authority** | Delegação Ed25519 pela chave da época anterior, janela temporal e rejeição de replays | `VERIFIED` |
-| **G5 — Supported Toolchain Green** | Suíte completa (21/21) verde na matriz suportada e validação de consumidor CMake | `LOCAL PASS` |
+| **G5 — Supported Toolchain & Packaging** | Suíte completa (21/21) na matriz GCC 14 / Clang 18 libc++ e teste real de consumidor CMake instalado | `VERIFIED` |
 | **G6 — Declared-Substrate Durability** | Ensaio elétrico de perda física de energia no hardware, kernel e filesystem declarados | `PENDING PHYSICAL TEST` |
 
 Cada gate só é considerado definitivamente `VERIFIED` mediante o quinteto:
