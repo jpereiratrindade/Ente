@@ -122,6 +122,26 @@ struct AuthorityTransitionPayload {
     std::string delegation_policy{"STRICT_LINEAGE"};
 };
 
+[[nodiscard]] std::string serialize_genesis_payload(const GenesisPayload& payload);
+[[nodiscard]] std::expected<GenesisPayload, core::EnteError> parse_genesis_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_observation_payload(const ObservationPayload& payload);
+[[nodiscard]] std::expected<ObservationPayload, core::EnteError> parse_observation_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_interpretation_payload(const InterpretationPayload& payload);
+[[nodiscard]] std::expected<InterpretationPayload, core::EnteError> parse_interpretation_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_material_migration_payload(const MaterialMigrationPayload& payload);
+[[nodiscard]] std::expected<MaterialMigrationPayload, core::EnteError> parse_material_migration_payload(
+    std::string_view serialized
+) noexcept;
+
 struct PerturbationPayload {
     std::string compatibility;
     std::string reason;

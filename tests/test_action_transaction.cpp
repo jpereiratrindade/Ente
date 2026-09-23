@@ -313,6 +313,73 @@ void test_precommit_failure_does_not_advance_live_state() {
     std::filesystem::remove(path + ".tmp");
 }
 
+void test_decision_step_is_one_durable_generation() {
+    const std::string path = "decision_step_precommit_failure.rec";
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+
+    JournalFaultPlan plan{
+        .operation = ente::history::PersistenceOperation::ReplaceTarget
+    };
+    const ente::history::PersistenceOptions options{
+        .before_operation = fail_journal_operation,
+        .context = &plan
+    };
+
+    ente::realization::EnteRealization process;
+    ENTE_TEST_ASSERT(process.genesis(ente::core::IdentityId("ente-step-atomic")).has_value());
+    ENTE_TEST_ASSERT(process.enable_durable_journal(path, options).has_value());
+    const auto size_before = process.history().size();
+    const auto head_before = process.history().head_digest();
+
+    plan.armed = true;
+    auto failed = process.step(1, {{
+        .id = ente::core::EvidenceId("EV-STEP-ATOMIC"),
+        .source = "sensor",
+        .subject = "path_clear",
+        .value = "true",
+        .observed_at = 1,
+        .status = ente::epistemic::EpistemicStatus::Observed
+    }});
+    ENTE_TEST_ASSERT(!failed.has_value());
+    ENTE_TEST_ASSERT(failed.error() == ente::core::EnteError::PersistenceFailure);
+    ENTE_TEST_ASSERT_EQ(process.history().size(), size_before);
+    ENTE_TEST_ASSERT_EQ(process.history().head_digest(), head_before);
+    ENTE_TEST_ASSERT(!process.current_interpretation().has_value());
+    ENTE_TEST_ASSERT(!process.history().contains_evidence(
+        ente::core::EvidenceId("EV-STEP-ATOMIC")));
+
+    const auto persisted = ente::history::RecoverableHistory::load_from_file(path);
+    ENTE_TEST_ASSERT(persisted.has_value());
+    ENTE_TEST_ASSERT_EQ(persisted->head_digest(), head_before);
+
+    plan.armed = false;
+    ENTE_TEST_ASSERT(process.step(1, {{
+        .id = ente::core::EvidenceId("EV-STEP-ATOMIC"),
+        .source = "sensor",
+        .subject = "path_clear",
+        .value = "true",
+        .observed_at = 1,
+        .status = ente::epistemic::EpistemicStatus::Observed
+    }}).has_value());
+
+    const auto size_after_success = process.history().size();
+    auto future_evidence = process.step(2, {{
+        .id = ente::core::EvidenceId("EV-FUTURE"),
+        .source = "sensor",
+        .subject = "path_clear",
+        .value = "true",
+        .observed_at = 3,
+        .status = ente::epistemic::EpistemicStatus::Observed
+    }});
+    ENTE_TEST_ASSERT(!future_evidence.has_value());
+    ENTE_TEST_ASSERT(future_evidence.error() == ente::core::EnteError::InsufficientEvidence);
+    ENTE_TEST_ASSERT_EQ(process.history().size(), size_after_success);
+
+    std::filesystem::remove(path);
+    std::filesystem::remove(path + ".tmp");
+}
+
 void test_effect_observation_rolls_back_as_one_unit() {
     const std::string path = "action_effect_precommit_failure.rec";
     std::filesystem::remove(path);
@@ -462,7 +529,8 @@ void test_dispatch_must_be_durable_before_domain_side_effect() {
 
     JournalFaultPlan plan{
         .operation = ente::history::PersistenceOperation::ReplaceTarget,
-        .fail_on_call = 3
+        // step, AUTHORIZED and PREPARED are durable writes; fail DISPATCH.
+        .fail_on_call = 4
     };
     const ente::history::PersistenceOptions options{
         .before_operation = fail_journal_operation,
@@ -537,6 +605,7 @@ int main() {
     test_canonical_payload_round_trip();
     test_mutable_history_forces_full_audit_before_action();
     test_precommit_failure_does_not_advance_live_state();
+    test_decision_step_is_one_durable_generation();
     test_effect_observation_rolls_back_as_one_unit();
     test_postrename_failure_is_explicitly_uncertain();
     test_dispatch_must_be_durable_before_domain_side_effect();

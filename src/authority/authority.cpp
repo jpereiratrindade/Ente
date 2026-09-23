@@ -42,7 +42,7 @@ std::expected<AuthorityEpoch, core::EnteError> AuthorityLineage::transition_epoc
     if (new_auth.empty()) {
         return std::unexpected(core::EnteError::IdentityMismatch);
     }
-    if (time < epochs_.back().activation_time) {
+    if (time <= epochs_.back().activation_time) {
         return std::unexpected(core::EnteError::InvalidLogicalTime);
     }
 
@@ -92,6 +92,25 @@ bool AuthorityLineage::is_epoch_legitimate(const AuthorityId& auth, const Author
     return false;
 }
 
+bool AuthorityLineage::is_epoch_legitimate_at(
+    const AuthorityId& auth,
+    const AuthorityEpochId& epoch,
+    core::LogicalTime event_time
+) const noexcept {
+    for (size_t i = 0; i < epochs_.size(); ++i) {
+        const auto& candidate = epochs_[i];
+        if (candidate.epoch_id != epoch || candidate.authorized_authority != auth ||
+            candidate.status == EpochStatus::Invalid || event_time < candidate.activation_time) {
+            continue;
+        }
+        if (i + 1 < epochs_.size() && event_time >= epochs_[i + 1].activation_time) {
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 bool AuthorityLineage::verify_lineage_integrity() const noexcept {
     if (epochs_.empty()) {
         return false;
@@ -105,6 +124,7 @@ bool AuthorityLineage::verify_lineage_integrity() const noexcept {
             std::string payload = std::format("{}:{}:{}", ep.epoch_id.view(), ep.authorized_authority.view(), ep.activation_time);
             if (core::HashUtil::sha256(payload) != ep.epoch_digest) return false;
         } else {
+            if (ep.activation_time <= epochs_[i - 1].activation_time) return false;
             if (!ep.predecessor_epoch.has_value() || *ep.predecessor_epoch != epochs_[i - 1].epoch_id) return false;
             std::string payload = std::format("{}:{}:{}:{}:{}",
                 ep.epoch_id.view(),
@@ -115,6 +135,10 @@ bool AuthorityLineage::verify_lineage_integrity() const noexcept {
             );
             if (core::HashUtil::sha256(payload) != ep.epoch_digest) return false;
         }
+        const auto expected_status = i + 1 == epochs_.size()
+            ? EpochStatus::Active
+            : EpochStatus::Retired;
+        if (ep.status != expected_status) return false;
         prev_digest = ep.epoch_digest;
     }
 

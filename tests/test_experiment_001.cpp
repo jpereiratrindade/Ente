@@ -362,7 +362,15 @@ void run_comparative_baseline_experiment() {
         ENTE_TEST_ASSERT(ente.step(1, {{.id = core::EvidenceId("EV_INIT"), .source = "cam", .subject = "path_clear", .value = "true", .observed_at = 1, .status = epistemic::EpistemicStatus::Observed}}, "init").has_value());
 
         // Step with test scenario
-        ENTE_TEST_ASSERT(ente.step(2, sc.observations, sc.name).has_value());
+        const auto scenario_time = sc.observations.empty()
+            ? core::LogicalTime{2}
+            : sc.observations.front().observed_at;
+        const auto scenario_result = ente.step(scenario_time, sc.observations, sc.name);
+        if (!scenario_result.has_value()) {
+            std::cerr << "Scenario failed: " << sc.name << " error="
+                      << core::to_string(scenario_result.error()) << '\n';
+        }
+        ENTE_TEST_ASSERT(scenario_result.has_value());
 
         if (sc.should_suspend && !ente.domain().is_action_suspended()) {
             ente0_unjustified += 1.0;
@@ -419,4 +427,3 @@ int main() {
 
     return 0;
 }
-

@@ -217,7 +217,7 @@ void test_authenticated_journal_survives_restart() {
         trusted_public_key
     ).has_value());
 
-    // The generic V1 recovery path cannot downgrade an authenticated journal.
+    // The non-authenticated recovery path cannot downgrade an authenticated journal.
     const auto downgrade = ente::realization::EnteRealization::recover_from_file(path);
     ENTE_TEST_ASSERT(!downgrade.has_value());
 

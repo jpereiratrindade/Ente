@@ -57,6 +57,11 @@ public:
 
     [[nodiscard]] bool is_authority_authorized(const AuthorityId& auth, const AuthorityEpochId& epoch) const noexcept;
     [[nodiscard]] bool is_epoch_legitimate(const AuthorityId& auth, const AuthorityEpochId& epoch) const noexcept;
+    [[nodiscard]] bool is_epoch_legitimate_at(
+        const AuthorityId& auth,
+        const AuthorityEpochId& epoch,
+        core::LogicalTime event_time
+    ) const noexcept;
     [[nodiscard]] bool verify_lineage_integrity() const noexcept;
     [[nodiscard]] const std::vector<AuthorityEpoch>& epochs() const noexcept { return epochs_; }
     [[nodiscard]] const AuthorityEpoch& active_epoch() const { return epochs_.back(); }

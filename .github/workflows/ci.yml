@@ -19,18 +19,24 @@ jobs:
             pkg: g++-14
             build_type: Debug
             enable_sanitizers: OFF
+            cxx_flags: ""
+            extra_packages: ""
 
           - name: GCC 14 (ASan + LSan)
             compiler: g++-14
             pkg: g++-14
             build_type: Debug
             enable_sanitizers: ON
+            cxx_flags: ""
+            extra_packages: ""
 
           - name: Clang 18 (C++23)
             compiler: clang++-18
             pkg: clang-18
             build_type: Release
             enable_sanitizers: OFF
+            cxx_flags: -stdlib=libc++
+            extra_packages: libc++-18-dev libc++abi-18-dev
 
     steps:
     - uses: actions/checkout@v4
@@ -38,12 +44,13 @@ jobs:
     - name: Install Build Dependencies & Compiler
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build libssl-dev ${{ matrix.pkg }}
+        sudo apt-get install -y cmake ninja-build libssl-dev ${{ matrix.pkg }} ${{ matrix.extra_packages }}
 
     - name: Configure CMake
       run: |
         cmake -S . -B build -G Ninja \
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler }} \
+          -DCMAKE_CXX_FLAGS="${{ matrix.cxx_flags }}" \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           -DENABLE_SANITIZERS=${{ matrix.enable_sanitizers }}
 

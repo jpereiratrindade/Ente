@@ -173,29 +173,50 @@ O ENTE exige que toda evidência sensorial seja explicitamente categorizada sob 
 std::vector<ente::epistemic::Observation> collect_drone_telemetry(
     double lidar_distance_m,
     bool optical_flow_valid,
-    bool gps_lock
+    bool gps_lock,
+    ente::core::LogicalTime observed_at
 ) {
     std::vector<ente::epistemic::Observation> obs;
+    const auto suffix = std::to_string(observed_at);
 
     // 1. Lidar com medição direta
-    obs.emplace_back(
-        "lidar_altitude",
-        std::to_string(lidar_distance_m),
-        ente::epistemic::EpistemicStatus::Observed
-    );
+    obs.push_back({
+        .id = ente::core::EvidenceId("EV-LIDAR-ALTITUDE-" + suffix),
+        .source = "lidar",
+        .subject = "lidar_altitude",
+        .value = std::to_string(lidar_distance_m),
+        .observed_at = observed_at,
+        .status = ente::epistemic::EpistemicStatus::Observed
+    });
 
     // 2. Fluxo óptico
     if (optical_flow_valid) {
-        obs.emplace_back("optical_flow", "tracking_stable", ente::epistemic::EpistemicStatus::Observed);
+        obs.push_back({
+            .id = ente::core::EvidenceId("EV-OPTICAL-FLOW-" + suffix), .source = "camera",
+            .subject = "optical_flow", .value = "tracking_stable", .observed_at = observed_at,
+            .status = ente::epistemic::EpistemicStatus::Observed
+        });
     } else {
-        obs.emplace_back("optical_flow", "feature_loss", ente::epistemic::EpistemicStatus::Uncertain);
+        obs.push_back({
+            .id = ente::core::EvidenceId("EV-OPTICAL-FLOW-" + suffix), .source = "camera",
+            .subject = "optical_flow", .value = "feature_loss", .observed_at = observed_at,
+            .status = ente::epistemic::EpistemicStatus::Uncertain
+        });
     }
 
     // 3. GPS: se sem fix, registrar como Unknown explícito, NUNCA coagir silenciosamente
     if (gps_lock) {
-        obs.emplace_back("gps_fix", "3D_FIX_RTK", ente::epistemic::EpistemicStatus::Observed);
+        obs.push_back({
+            .id = ente::core::EvidenceId("EV-GPS-FIX-" + suffix), .source = "gps",
+            .subject = "gps_fix", .value = "3D_FIX_RTK", .observed_at = observed_at,
+            .status = ente::epistemic::EpistemicStatus::Observed
+        });
     } else {
-        obs.emplace_back("gps_fix", "NO_LOCK", ente::epistemic::EpistemicStatus::Unknown);
+        obs.push_back({
+            .id = ente::core::EvidenceId("EV-GPS-FIX-" + suffix), .source = "gps",
+            .subject = "gps_fix", .value = "NO_LOCK", .observed_at = observed_at,
+            .status = ente::epistemic::EpistemicStatus::Unknown
+        });
     }
 
     return obs;
@@ -227,7 +248,7 @@ int main() {
     ente::core::LogicalTime current_time{1000};
 
     // Cenário A: Telemetria Nominal
-    auto obs_nominal = collect_drone_telemetry(15.2, true, true);
+    auto obs_nominal = collect_drone_telemetry(15.2, true, true, current_time);
     ente::realization::StepContext ctx_nominal{
         .subject = "drone_flight_safety",
         .proposition = "Condições aerodinâmicas e navegação GPS nominais",
@@ -244,7 +265,7 @@ int main() {
     // outcome_nominal.is_safe_hold == false
 
     // Cenário B: Injeção de Incerteza Crítica (GPS sem lock + perda de fluxo óptico)
-    auto obs_anomalia = collect_drone_telemetry(15.2, false, false);
+    auto obs_anomalia = collect_drone_telemetry(15.2, false, false, current_time);
     ente::realization::StepContext ctx_anomalia{
         .subject = "drone_flight_safety",
         .proposition = "Condições aerodinâmicas e navegação GPS nominais",

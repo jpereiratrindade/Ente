@@ -12,6 +12,19 @@ int main() {
     ENTE_TEST_ASSERT(rec.empty());
     ENTE_TEST_ASSERT(rec.verify_integrity());
 
+    RecoverableHistory missing_genesis;
+    auto non_genesis = missing_genesis.create_event(
+        EventKind::Observation,
+        id,
+        0,
+        {},
+        {EvidenceId("EV-NO-GENESIS")},
+        "NO_GENESIS"
+    );
+    auto missing_genesis_result = missing_genesis.append(std::move(non_genesis));
+    ENTE_TEST_ASSERT(!missing_genesis_result.has_value());
+    ENTE_TEST_ASSERT(missing_genesis_result.error() == EnteError::GenesisNotEstablished);
+
     // 1. Append Genesis event
     auto ev0 = rec.create_event(EventKind::Genesis, id, 0, {}, {}, "GENESIS_PAYLOAD");
     auto res0 = rec.append(ev0);
@@ -34,6 +47,19 @@ int main() {
     ENTE_TEST_ASSERT_EQ(rec.size(), 3);
     ENTE_TEST_ASSERT(rec.verify_integrity());
 
+    // A self-consistent event from another identity must never enter the lineage.
+    auto foreign = rec.create_event(
+        EventKind::Observation,
+        IdentityId("ente-foreign"),
+        3,
+        {ev2.id},
+        {EvidenceId("EV-FOREIGN")},
+        "FOREIGN_IDENTITY"
+    );
+    auto foreign_result = rec.append(std::move(foreign));
+    ENTE_TEST_ASSERT(!foreign_result.has_value());
+    ENTE_TEST_ASSERT(foreign_result.error() == EnteError::IdentityMismatch);
+
     // 4. Test Duplicate EventId rejection (C10/C12 invariant)
     auto ev_duplicate = rec.create_event(EventKind::Observation, id, 3, {ev2.id}, {ev_id}, "DUPLICATE_PAYLOAD");
     ev_duplicate.id = ev0.id; // Forge duplicate id of Genesis
@@ -48,4 +74,3 @@ int main() {
     std::cout << "[PASS] test_rec: Hash-chain, causal links, duplicate EventId rejection, and tamper detection (C10, C12) verified.\n";
     return 0;
 }
-

@@ -49,7 +49,7 @@ Para a análise formal dos limites de segurança, premissas de confiança e o qu
 - Compilador C++23 (`GCC 13/14+` ou `Clang 17/18+`)
 - `CMake 3.25+`
 - `Ninja`
-- `OpenSSL 3.x` (`libcrypto`, usado pelo REC V2 Ed25519)
+- `OpenSSL 3.x` (`libcrypto`, usado pelo REC V3 autenticado com Ed25519)
 
 ### Build
 ```bash

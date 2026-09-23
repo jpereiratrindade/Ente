@@ -74,17 +74,9 @@ int main() {
         {core::EvidenceId("EV-NEVER-OBSERVED")},
         "JUDGMENT_WITH_FORGED_PROVENANCE"
     );
-    ENTE_TEST_ASSERT(forged_provenance.append(forged_judgment).has_value());
-    auto report3 = verifier.verify(
-        genesis_service.state(), genesis_service.record(), forged_provenance, std::nullopt
-    );
-    bool c4_violated = false;
-    for (const auto& invariant : report3.invariant_reports) {
-        if (invariant.id == constitution::InvariantId::C4_Provenance) {
-            c4_violated = invariant.status == constitution::InvariantStatus::Violated;
-        }
-    }
-    ENTE_TEST_ASSERT(c4_violated);
+    const auto forged_result = forged_provenance.append(forged_judgment);
+    ENTE_TEST_ASSERT(!forged_result.has_value());
+    ENTE_TEST_ASSERT(forged_result.error() == core::EnteError::InsufficientEvidence);
 
     std::cout << "[PASS] test_verifier: Invariant evaluation (C1..C12) verified.\n";
     return 0;

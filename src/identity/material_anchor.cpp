@@ -12,7 +12,7 @@ std::expected<MaterialBinding, core::EnteError> MaterialBindingRegistry::bind_in
     if (!bindings_.empty()) {
         return std::unexpected(core::EnteError::GenesisAlreadyExists);
     }
-    if (id.empty() || anchor.id.empty()) {
+    if (id.empty() || anchor.id.empty() || anchor.hardware_fingerprint.empty()) {
         return std::unexpected(core::EnteError::IdentityMismatch);
     }
 
@@ -43,8 +43,16 @@ std::expected<MaterialBinding, core::EnteError> MaterialBindingRegistry::migrate
     if (bindings_.empty()) {
         return std::unexpected(core::EnteError::GenesisNotEstablished);
     }
-    if (new_anchor.id.empty()) {
+    if (new_anchor.id.empty() || new_anchor.hardware_fingerprint.empty()) {
         return std::unexpected(core::EnteError::IdentityMismatch);
+    }
+    if (time <= bindings_.back().bound_at) {
+        return std::unexpected(core::EnteError::InvalidLogicalTime);
+    }
+    for (const auto& binding : bindings_) {
+        if (binding.anchor.id == new_anchor.id) {
+            return std::unexpected(core::EnteError::IdentityMismatch);
+        }
     }
 
     const auto& prev = bindings_.back();

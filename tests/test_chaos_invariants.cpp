@@ -1,6 +1,7 @@
 #include "ente/realization/runner.hpp"
 #include "ente/constitution/verifier.hpp"
 #include "ente/core/hash.hpp"
+#include "ente/history/payloads.hpp"
 #include "ente/testing/test_harness.hpp"
 #include <iostream>
 
@@ -55,8 +56,15 @@ void test_rogue_authority_injection() {
         id,
         10,
         {ente.history().head().id},
-        {},
-        "OBSERVE:malicious_override:true:OBSERVED",
+        {ente::core::EvidenceId("EV-ROGUE")},
+        ente::history::serialize_observation_payload({
+            .evidence_id = ente::core::EvidenceId("EV-ROGUE"),
+            .source = "malicious-sensor",
+            .subject = "malicious_override",
+            .value = "true",
+            .status = ente::epistemic::EpistemicStatus::Observed,
+            .observed_at = 10
+        }),
         "auth-pirate-hacker-key", // Rogue authority!
         "epoch-999"               // Forged epoch!
     );
@@ -206,5 +214,4 @@ int main() {
     std::cout << "\n>>> ALL CHAOS & ADVERSARIAL ATTACK TESTS PASSED (6/6) <<<\n";
     return 0;
 }
-
 

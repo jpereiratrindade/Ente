@@ -48,7 +48,16 @@ VerificationReport ConstitutionVerifier::verify(
     }
 
     // C2 — Continuity
-    if (history_ok && identity.lifecycle == identity::LifecycleStatus::LifeActive) {
+    bool identity_lineage_ok = history_ok && identity.lifecycle == identity::LifecycleStatus::LifeActive;
+    if (identity_lineage_ok) {
+        for (const auto& event : history.events()) {
+            if (event.identity != identity.id) {
+                identity_lineage_ok = false;
+                break;
+            }
+        }
+    }
+    if (identity_lineage_ok) {
         reports.push_back({InvariantId::C2_Continuity, InvariantStatus::Satisfied, "State transitions preserve continuous verified lineage"});
     } else {
         reports.push_back({InvariantId::C2_Continuity, InvariantStatus::Violated, "Discontinuity detected"});
@@ -61,11 +70,14 @@ VerificationReport ConstitutionVerifier::verify(
     std::unordered_set<std::string> known_evidence;
     for (const auto& ev : history.events()) {
         if (ev.kind == history::EventKind::Observation) {
-            has_valid_observations = true;
-            if (ev.evidence_refs.empty()) {
+            const auto observation = history::parse_observation_payload(ev.payload_content);
+            if (!observation.has_value() || ev.evidence_refs.size() != 1 ||
+                ev.evidence_refs.front() != observation->evidence_id ||
+                observation->observed_at > ev.logical_time) {
                 provenance_ok = false;
                 break;
             }
+            has_valid_observations = true;
             for (const auto& evidence_id : ev.evidence_refs) {
                 if (evidence_id.empty() || !known_evidence.insert(evidence_id.value).second) {
                     provenance_ok = false;
@@ -119,13 +131,7 @@ VerificationReport ConstitutionVerifier::verify(
     bool epistemic_tags_valid = true;
     for (const auto& ev : history.events()) {
         if (ev.kind == history::EventKind::Observation) {
-            // Must contain recognized epistemic status tag in payload
-            if (ev.payload_content.find(":OBSERVED") == std::string::npos &&
-                ev.payload_content.find(":UNKNOWN") == std::string::npos &&
-                ev.payload_content.find(":CONTRADICTORY") == std::string::npos &&
-                ev.payload_content.find(":DERIVED") == std::string::npos &&
-                ev.payload_content.find(":INFERRED") == std::string::npos &&
-                ev.payload_content.find(":UNCERTAIN") == std::string::npos) {
+            if (!history::parse_observation_payload(ev.payload_content).has_value()) {
                 epistemic_tags_valid = false;
                 break;
             }
@@ -173,9 +179,10 @@ VerificationReport ConstitutionVerifier::verify(
             break;
         }
         if (authority_lineage.has_value()) {
-            if (!authority_lineage->get().is_epoch_legitimate(
+            if (!authority_lineage->get().is_epoch_legitimate_at(
                     authority::AuthorityId(ev.authority_id),
-                    authority::AuthorityEpochId(ev.authority_epoch))) {
+                    authority::AuthorityEpochId(ev.authority_epoch),
+                    ev.logical_time)) {
                 authority_ok = false;
                 break;
             }
@@ -276,14 +283,11 @@ VerificationReport ConstitutionVerifier::verify_step(
     // C5 / C8 — Epistemic Distinction & Unknown Representability
     bool epistemic_status_valid = true;
     if (latest_event.kind == history::EventKind::Observation) {
-        epistemic_status_valid = (
-            latest_event.payload_content.find(":OBSERVED") != std::string::npos ||
-            latest_event.payload_content.find(":UNKNOWN") != std::string::npos ||
-            latest_event.payload_content.find(":CONTRADICTORY") != std::string::npos ||
-            latest_event.payload_content.find(":DERIVED") != std::string::npos ||
-            latest_event.payload_content.find(":INFERRED") != std::string::npos ||
-            latest_event.payload_content.find(":UNCERTAIN") != std::string::npos
-        );
+        const auto observation = history::parse_observation_payload(latest_event.payload_content);
+        epistemic_status_valid = observation.has_value() &&
+            latest_event.evidence_refs.size() == 1 &&
+            latest_event.evidence_refs.front() == observation->evidence_id &&
+            observation->observed_at <= latest_event.logical_time;
     }
 
     if (epistemic_status_valid) {
@@ -323,9 +327,10 @@ VerificationReport ConstitutionVerifier::verify_step(
     // C14 — Authority check on latest event
     bool auth_ok = !latest_event.authority_id.empty() && !latest_event.authority_epoch.empty();
     if (auth_ok && authority_lineage.has_value()) {
-        auth_ok = authority_lineage->get().is_epoch_legitimate(
+        auth_ok = authority_lineage->get().is_epoch_legitimate_at(
             authority::AuthorityId(latest_event.authority_id),
-            authority::AuthorityEpochId(latest_event.authority_epoch)
+            authority::AuthorityEpochId(latest_event.authority_epoch),
+            latest_event.logical_time
         );
     }
 

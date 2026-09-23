@@ -30,7 +30,7 @@ Para evitar alegações impossíveis ou presunções de segurança injustificada
 | :--- | :--- | :--- | :--- | :--- |
 | **T0** | **Falha Acidental** | Bit-flips em RAM, crash de processo, perda súbita de energia durante E/S. | Protocolo de ação recuperável, commit point conjunto de REC/índice, substituição atômica e fsync POSIX; falha após `rename` é reportada como commit incerto. | Parcialmente mitigado; garantias dependem do filesystem, hardware e journal configurado. |
 | **T1** | **Corrupção de Armazenamento** | Truncamento no disco, falha de setor, blocos corrompidos no log histórico. | Detecção de truncamento na inicialização, checksum SHA-256 por evento. | Recuperação segura em `SafeHold`. |
-| **T2** | **Atacante com Acesso Offline ao REC** | Invasor que modifica eventos históricos no arquivo em disco enquanto o processo está inativo. | No modo autenticado, assinatura Ed25519 do snapshot V2 por chave privada externa ao REC, além da hash-chain e verificação C10/C12. | V1 continua hash-only; V2 não detecta mentira produzida antes da assinatura nem resiste ao comprometimento da chave privada. |
+| **T2** | **Atacante com Acesso Offline ao REC** | Invasor que modifica eventos históricos no arquivo em disco enquanto o processo está inativo. | No modo autenticado, assinatura Ed25519 do snapshot V3 por chave privada externa ao REC, além da hash-chain e verificação C10/C12. | V3 sem autenticação continua hash-only; a assinatura não detecta mentira produzida antes dela nem resiste ao comprometimento da chave privada. |
 | **T3** | **Atacante Controla o Processo ENTE** | Código hostil injetado no espaço de endereço de memória do processo ativo. | Ancoragem de integridade de Gênese imutável e verificadores constitutivos externos. | O processo comprometido pode falsificar deliberações se possuir a chave local. |
 | **T4** | **Atacante com Privilégios Root / Host** | Atacante capaz de substituir o arquivo REC por um snapshot antigo válido (Ataque de Rollback). | Requer âncora externa imutável (TPM Monotonic Counter, remote witness ou append-only external ledger). | Hash-chain sozinho NÃO previne rollback para versão antiga autêntica sem âncora externa. |
 | **T5** | **Comprometimento de Chave / Hardware Root** | Extração da chave privada mestra ou clonagem física do enclave/TPM. | Fora do escopo local; requer revogação de autoridade na época subsequente (C14). | Requer protocolo de autoridade multi-assinada e rotação de época. |
@@ -83,7 +83,7 @@ Para evitar alegações impossíveis ou presunções de segurança injustificada
 
 ### Ameaça 4: Transição de Autoridade Ilegítima / Regressão Temporal
 - **Vetor:** Tentativa de usurpar o comando do agente apresentando uma época de autoridade falsificada ou revertendo a época para uma anterior já revogada.
-- **Defesa:** Validação estrita de transição de época (C14): toda nova época deve conter o digest predecessor, timestamp monotônico estritamente crescente e assinatura da autoridade anterior autorizando a delegação.
+- **Defesa atual:** Validação estrutural de transição de época (C14): toda nova época contém o digest predecessor, usa timestamp estritamente crescente e possui janela temporal verificável. A delegação criptograficamente assinada pela autoridade anterior permanece como requisito do perfil de autoridade autenticada, ainda não implementado no núcleo local.
 
 ### Ameaça 5: Telemetria Sensorial Maliciosa ou Conflitante
 - **Vetor:** Sensores que falham silenciosamente (drift de calibração), sensores em curto ou injeção de dados falsos.
@@ -112,7 +112,7 @@ Para evitar alegações impossíveis ou presunções de segurança injustificada
 | **C11 (Linhagem Singular)** | `NOT_APPLICABLE` *(Mono-nó)* | Verificação de ramificação única no ledger local | Em mono-nó não há bifurcação de rede; escopo distribuído futuro. |
 | **C12 (Recuperação Histórica)** | `IMPLEMENTADA` | Reconstrução HRE do estado factual a partir do REC em disco | Validação de ponta a ponta pós-crash. |
 | **C13 (Finalidade Constitutiva)**| `NOT_APPLICABLE` *(Mono-nó)* | Finalidade imediata por fsync local | Consenso bizantino distribuído fora de escopo. |
-| **C14 (Continuidade de Autoridade)**| `IMPLEMENTADA` | Cadeia de épocas com autoridade e digest de linhagem | Transição requer delegação válida. |
+| **C14 (Continuidade de Autoridade)**| `PARCIALMENTE IMPLEMENTADA` | Cadeia estrutural de épocas, digest de linhagem e janelas temporais estritas | Delegação criptograficamente assinada ainda não implementada. |
 | **Atestação RATS de Hardware** | `SIMULADA` | Digest de fingerprint de hardware (`MaterialAnchor`) | Sem enclave criptográfico físico (TPM/TEE) ativo. |
 | **Maturidade Crítica de Segurança**| `PROTÓTIPO AUDITÁVEL` | Suíte de testes determinísticos e sanitizers | **NÃO** certificado para uso industrial/médico sem homologação. |
 

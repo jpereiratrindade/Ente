@@ -50,6 +50,11 @@ public:
 
     [[nodiscard]] std::optional<HistoryEvent> find_event(const core::EventId& id) const noexcept;
     [[nodiscard]] bool contains_event(const core::EventId& id) const noexcept;
+    [[nodiscard]] bool contains_evidence(const core::EvidenceId& id) const noexcept;
+
+    // Roll back events appended after a transaction checkpoint. This only
+    // removes a suffix and keeps both indexes synchronized without allocation.
+    void rollback_to_size(size_t checkpoint) noexcept;
     
     // Canonical event hash input serialization
     [[nodiscard]] static std::string compute_event_hash_string(const HistoryEvent& ev) noexcept;
@@ -73,7 +78,7 @@ public:
     ) const noexcept;
     [[nodiscard]] static std::expected<RecoverableHistory, core::EnteError> load_from_file(std::string_view filepath) noexcept;
 
-    // V2 snapshot authentication. The trusted public key is supplied out of
+    // V3 authenticated snapshot. The trusted public key is supplied out of
     // band; it is never accepted from the REC being verified.
     [[nodiscard]] std::expected<void, core::EnteError> save_authenticated_to_file(
         std::string_view filepath,
@@ -93,6 +98,7 @@ private:
 
     std::vector<HistoryEvent> events_;
     std::unordered_map<std::string, size_t> event_index_;
+    std::unordered_map<std::string, size_t> evidence_index_;
 };
 
 } // namespace ente::history

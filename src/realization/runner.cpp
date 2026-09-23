@@ -46,22 +46,12 @@ bool valid_action_transition(
     return false;
 }
 
-identity::SubstrateType parse_substrate_type_str(std::string_view s) noexcept {
+std::optional<identity::SubstrateType> parse_substrate_type_str(std::string_view s) noexcept {
+    if (s == "SIMULATED_MEMORY") return identity::SubstrateType::SimulatedMemory;
     if (s == "TPM_PROTECTED_DEVICE") return identity::SubstrateType::TpmProtectedDevice;
     if (s == "SECURE_ENCLAVE") return identity::SubstrateType::SecureEnclave;
     if (s == "DISTRIBUTED_NODE") return identity::SubstrateType::DistributedNode;
-    return identity::SubstrateType::SimulatedMemory;
-}
-
-std::vector<std::string> split_string(std::string_view str, char delim) {
-    std::vector<std::string> tokens;
-    std::string token;
-    std::string s(str);
-    std::istringstream token_stream(s);
-    while (std::getline(token_stream, token, delim)) {
-        tokens.push_back(token);
-    }
-    return tokens;
+    return std::nullopt;
 }
 
 } // namespace
@@ -76,7 +66,13 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
     core::Digest const_digest = core::HashUtil::sha256("CONSTITUTION-v0.6.0");
     core::Digest basal_digest = core::HashUtil::sha256("BASAL-STATE-v0.1.0");
 
-    auto gen_res = genesis_service_.create_genesis({
+    auto candidate_genesis = genesis_service_;
+    auto candidate_bindings = bindings_;
+    auto candidate_authority = authority_;
+    auto candidate_rec = rec_;
+    auto candidate_prng = prng_;
+
+    auto gen_res = candidate_genesis.create_genesis({
         .identity = id,
         .constitution_digest = const_digest,
         .basal_state_digest = basal_digest
@@ -92,38 +88,49 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
         .type = identity::SubstrateType::SimulatedMemory,
         .hardware_fingerprint = "fp-simulated-root-memory"
     });
-    auto b_res = bindings_.bind_initial_anchor(id, anchor, 0);
+    auto b_res = candidate_bindings.bind_initial_anchor(id, anchor, 0);
     if (!b_res.has_value()) {
         return std::unexpected(b_res.error());
     }
 
     // 2. Initialize root authority epoch bound to Genesis (C14)
     authority::AuthorityId root_auth(std::format("auth-root-{}", id.view()));
-    auto ep_res = authority_.initialize_root_epoch(root_auth, 0);
+    auto ep_res = candidate_authority.initialize_root_epoch(root_auth, 0);
     if (!ep_res.has_value()) {
         return std::unexpected(ep_res.error());
     }
 
     // 3. Seed Event-Scoped Deterministic PRNG from Genesis Digest
-    prng_ = core::EventScopedPRNG(gen_res->genesis_digest.value);
+    candidate_prng = core::EventScopedPRNG(gen_res->genesis_digest.value);
 
     // 4. Record Genesis into REC with active authority epoch
-    auto gen_event = rec_.create_event(
+    auto gen_event = candidate_rec.create_event(
         history::EventKind::Genesis,
         id,
         0,
         {},
         {},
-        std::format("GENESIS:{}:{}:{}:{}:{}", id.view(), gen_res->genesis_digest.value, anchor.id.view(), anchor.hardware_fingerprint, identity::to_string(anchor.type)),
+        history::serialize_genesis_payload({
+            .identity = id,
+            .genesis_digest = gen_res->genesis_digest,
+            .material_anchor_id = std::string(anchor.id.view()),
+            .hardware_fingerprint = anchor.hardware_fingerprint,
+            .substrate_type = std::string(identity::to_string(anchor.type))
+        }),
         std::string(root_auth.view()),
         std::string(ep_res->epoch_id.view())
     );
 
-    auto append_res = rec_.append(std::move(gen_event));
+    auto append_res = candidate_rec.append(std::move(gen_event));
     if (!append_res.has_value()) {
         return std::unexpected(append_res.error());
     }
 
+    genesis_service_ = std::move(candidate_genesis);
+    bindings_ = std::move(candidate_bindings);
+    authority_ = std::move(candidate_authority);
+    rec_ = std::move(candidate_rec);
+    prng_ = std::move(candidate_prng);
     return *gen_res;
 }
 
@@ -135,7 +142,9 @@ std::expected<identity::MaterialBinding, core::EnteError> EnteRealization::migra
         return std::unexpected(core::EnteError::GenesisNotEstablished);
     }
 
-    auto b_res = bindings_.migrate_to_anchor(new_anchor, time);
+    auto candidate_bindings = bindings_;
+    auto candidate_rec = rec_;
+    auto b_res = candidate_bindings.migrate_to_anchor(new_anchor, time);
     if (!b_res.has_value()) {
         return std::unexpected(b_res.error());
     }
@@ -145,22 +154,46 @@ std::expected<identity::MaterialBinding, core::EnteError> EnteRealization::migra
     std::string current_auth_id = authority_.empty() ? "auth-root" : std::string(authority_.active_epoch().authorized_authority.view());
     std::string current_epoch_id = authority_.empty() ? "epoch-0" : std::string(authority_.active_epoch().epoch_id.view());
 
-    auto adapt_event = rec_.create_event(
+    auto adapt_event = candidate_rec.create_event(
         history::EventKind::Adaptation,
         id,
         time,
-        {rec_.head().id},
+        {candidate_rec.head().id},
         {},
-        std::format("MIGRATE_HARDWARE:{}:{}:{}", new_anchor.id.view(), new_anchor.hardware_fingerprint, identity::to_string(new_anchor.type)),
+        history::serialize_material_migration_payload({
+            .new_anchor_id = std::string(new_anchor.id.view()),
+            .new_hardware_fingerprint = new_anchor.hardware_fingerprint,
+            .substrate_type = std::string(identity::to_string(new_anchor.type)),
+            .previous_anchor_id = b_res->previous_anchor.has_value()
+                ? std::optional<std::string>(std::string(b_res->previous_anchor->view()))
+                : std::nullopt
+        }),
         current_auth_id,
         current_epoch_id
     );
 
-    auto app_res = rec_.append(std::move(adapt_event));
+    auto app_res = candidate_rec.append(std::move(adapt_event));
     if (!app_res.has_value()) {
         return std::unexpected(app_res.error());
     }
 
+    const auto commit_candidate = [&]() noexcept {
+        bindings_ = std::move(candidate_bindings);
+        rec_ = std::move(candidate_rec);
+    };
+    if (journal_path_.has_value()) {
+        auto persisted = journal_signer_.has_value()
+            ? candidate_rec.save_authenticated_to_file(
+                *journal_path_, *journal_signer_, journal_options_)
+            : candidate_rec.save_to_file(*journal_path_, journal_options_);
+        if (!persisted.has_value()) {
+            if (persisted.error() == core::EnteError::PersistenceCommitUncertain) {
+                commit_candidate();
+            }
+            return std::unexpected(persisted.error());
+        }
+    }
+    commit_candidate();
     return *b_res;
 }
 
@@ -196,14 +229,27 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
     // 2. Seed EventScopedPRNG from recovered Genesis
     instance.prng_ = core::EventScopedPRNG(gen_res->genesis_digest.value);
 
-    // 3. Reconstruct Initial Material Anchor from Genesis Payload
-    auto gen_tokens = split_string(gen_ev.payload_content, ':');
+    // 3. Reconstruct and validate the initial material anchor from typed Genesis.
+    auto genesis_payload = history::parse_genesis_payload(gen_ev.payload_content);
+    if (!genesis_payload.has_value() ||
+        genesis_payload->identity != gen_ev.identity ||
+        genesis_payload->genesis_digest != gen_res->genesis_digest) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
+    const auto genesis_substrate = parse_substrate_type_str(genesis_payload->substrate_type);
+    if (!genesis_substrate.has_value()) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
     identity::MaterialAnchor initial_anchor{
-        .id = identity::MaterialAnchorId(gen_tokens.size() > 3 ? gen_tokens[3] : "anchor-genesis-0"),
-        .type = gen_tokens.size() > 5 ? parse_substrate_type_str(gen_tokens[5]) : identity::SubstrateType::SimulatedMemory,
-        .hardware_fingerprint = gen_tokens.size() > 4 ? gen_tokens[4] : "fp-simulated-root-memory"
+        .id = identity::MaterialAnchorId(genesis_payload->material_anchor_id),
+        .type = *genesis_substrate,
+        .hardware_fingerprint = genesis_payload->hardware_fingerprint
     };
-    (void)instance.bindings_.bind_initial_anchor(gen_ev.identity, initial_anchor, gen_ev.logical_time);
+    auto initial_binding = instance.bindings_.bind_initial_anchor(
+        gen_ev.identity, initial_anchor, gen_ev.logical_time);
+    if (!initial_binding.has_value()) {
+        return std::unexpected(initial_binding.error());
+    }
 
     // 4. Reconstruct Authority Lineage root epoch
     authority::AuthorityId auth_id(gen_ev.authority_id);
@@ -211,27 +257,33 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
     if (!auth_res.has_value()) {
         return std::unexpected(auth_res.error());
     }
+    if (auth_res->epoch_id.view() != gen_ev.authority_epoch) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
 
     // 5. Replay Historical Transitions (Material Migrations, Authority Epochs, Interpretations, Safety Directives)
     for (size_t i = 1; i < instance.rec_.events().size(); ++i) {
         const auto& ev = instance.rec_.events()[i];
 
-        if (ev.kind == history::EventKind::Adaptation && ev.payload_content.starts_with("MIGRATE_HARDWARE:")) {
-            auto tokens = split_string(ev.payload_content, ':');
-            if (tokens.size() >= 4) {
-                identity::MaterialAnchor migrated_anchor{
-                    .id = identity::MaterialAnchorId(tokens[1]),
-                    .type = parse_substrate_type_str(tokens[3]),
-                    .hardware_fingerprint = tokens[2]
-                };
-                (void)instance.bindings_.migrate_to_anchor(migrated_anchor, ev.logical_time);
+        if (ev.kind == history::EventKind::Adaptation) {
+            auto payload = history::parse_material_migration_payload(ev.payload_content);
+            if (!payload.has_value()) {
+                return std::unexpected(payload.error());
             }
-        }
-
-        if (ev.payload_content.starts_with("TRANSITION_EPOCH:")) {
-            auto tokens = split_string(ev.payload_content, ':');
-            if (tokens.size() >= 2) {
-                (void)instance.authority_.transition_epoch(authority::AuthorityId(tokens[1]), ev.logical_time);
+            const auto substrate = parse_substrate_type_str(payload->substrate_type);
+            if (!substrate.has_value() || !payload->previous_anchor_id.has_value() ||
+                *payload->previous_anchor_id != instance.bindings_.active_binding().anchor.id.view()) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
+            identity::MaterialAnchor migrated_anchor{
+                .id = identity::MaterialAnchorId(payload->new_anchor_id),
+                .type = *substrate,
+                .hardware_fingerprint = payload->new_hardware_fingerprint
+            };
+            auto migrated = instance.bindings_.migrate_to_anchor(
+                std::move(migrated_anchor), ev.logical_time);
+            if (!migrated.has_value()) {
+                return std::unexpected(migrated.error());
             }
         }
 
@@ -239,18 +291,18 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
             ev.kind == history::EventKind::Reinterpretation ||
             ev.kind == history::EventKind::CoherenceRestored) {
             
-            auto tokens = split_string(ev.payload_content, ':');
-            std::string interp_id_str = tokens.size() > 1 ? tokens[1] : "I_RECOVERED";
-            std::string subject_str = tokens.size() > 2 ? tokens[2] : "path_clear";
-            std::string prop_str = tokens.size() > 3 ? tokens[3] : ev.payload_content;
+            auto payload = history::parse_interpretation_payload(ev.payload_content);
+            if (!payload.has_value() || payload->created_at != ev.logical_time) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
 
             instance.current_interpretation_ = epistemic::Interpretation{
-                .id = core::InterpretationId(interp_id_str),
-                .subject = subject_str,
-                .proposition = prop_str,
+                .id = payload->id,
+                .subject = payload->subject,
+                .proposition = payload->proposition,
                 .supporting_evidence = ev.evidence_refs,
                 .challenging_evidence = {},
-                .supersedes = std::nullopt,
+                .supersedes = payload->supersedes,
                 .status = epistemic::InterpretationStatus::Current,
                 .created_at = ev.logical_time
             };
@@ -451,6 +503,31 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
 
     // 1. Record observations into REC
     std::vector<core::EvidenceId> obs_evidence_ids;
+    std::unordered_set<std::string> batch_evidence_ids;
+    if (!current_interpretation_.has_value() &&
+        (observations.empty() || context.subject.empty() || context.proposition.empty())) {
+        return std::unexpected(core::EnteError::InsufficientEvidence);
+    }
+    for (const auto& obs : observations) {
+        if (obs.id.empty() || obs.source.empty() || obs.subject.empty() ||
+            obs.observed_at > time || rec_.contains_evidence(obs.id) ||
+            !batch_evidence_ids.insert(obs.id.value).second) {
+            return std::unexpected(core::EnteError::InsufficientEvidence);
+        }
+    }
+
+    const size_t rec_size_before = rec_.size();
+    auto interpretation_before = current_interpretation_;
+    auto rcc_before = rcc_;
+    auto domain_before = domain_;
+    const auto status_before = constitutive_status_;
+    const auto rollback = [&]() noexcept {
+        rec_.rollback_to_size(rec_size_before);
+        current_interpretation_ = std::move(interpretation_before);
+        rcc_ = std::move(rcc_before);
+        domain_ = std::move(domain_before);
+        constitutive_status_ = status_before;
+    };
     for (const auto& obs : observations) {
         obs_evidence_ids.push_back(obs.id);
         auto obs_event = rec_.create_event(
@@ -459,12 +536,22 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             time,
             {},
             {obs.id},
-            std::format("OBSERVE:{}:{}:{}", obs.subject, obs.value, to_string(obs.status)),
+            history::serialize_observation_payload({
+                .evidence_id = obs.id,
+                .source = obs.source,
+                .subject = obs.subject,
+                .value = obs.value,
+                .status = obs.status,
+                .observed_at = obs.observed_at
+            }),
             current_auth_id,
             current_epoch_id
         );
         auto app_res = rec_.append(std::move(obs_event));
-        if (!app_res.has_value()) return std::unexpected(app_res.error());
+        if (!app_res.has_value()) {
+            rollback();
+            return std::unexpected(app_res.error());
+        }
     }
 
     // 2. If no current interpretation, establish basal/initial interpretation from context
@@ -487,18 +574,30 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             time,
             {},
             obs_evidence_ids,
-            std::format("INTERPRET:I0000:{}:{}", context.subject, current_interpretation_->proposition),
+            history::serialize_interpretation_payload({
+                .id = current_interpretation_->id,
+                .subject = current_interpretation_->subject,
+                .proposition = current_interpretation_->proposition,
+                .supporting_evidence = current_interpretation_->supporting_evidence,
+                .challenging_evidence = current_interpretation_->challenging_evidence,
+                .supersedes = current_interpretation_->supersedes,
+                .created_at = current_interpretation_->created_at
+            }),
             current_auth_id,
             current_epoch_id
         );
         auto app_res = rec_.append(std::move(interp_event));
-        if (!app_res.has_value()) return std::unexpected(app_res.error());
+        if (!app_res.has_value()) {
+            rollback();
+            return std::unexpected(app_res.error());
+        }
     }
 
     // 3. Continuous Context Reassessment (RCC)
     auto reassess = rcc_.evaluate(*current_interpretation_, observations, *judgment_);
 
     if (!rec_.verify_tail()) {
+        rollback();
         constitutive_status_ = constitution::ConstitutiveStatus::Violated;
         domain_.suspend_action();
         return std::unexpected(core::EnteError::ConstitutiveViolation);
@@ -516,6 +615,13 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
     // 5. Runtime Assurance Evaluation: Translates Epistemic Action & Constitutive Status to Safety Directives
     auto safety_directive = assurance_.evaluate_safety(reassess.epistemic_action, verification.status);
 
+    if (verification.status == constitution::ConstitutiveStatus::Violated) {
+        rollback();
+        constitutive_status_ = constitution::ConstitutiveStatus::Violated;
+        domain_.suspend_action();
+        return std::unexpected(core::EnteError::ConstitutiveViolation);
+    }
+
     // If compatibility changed, record Perturbation/RCC event
     if (reassess.compatibility != judgment::CompatibilityResult::Supported) {
         auto rcc_event = rec_.create_event(
@@ -529,7 +635,10 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             current_epoch_id
         );
         auto app_res = rec_.append(std::move(rcc_event));
-        if (!app_res.has_value()) return std::unexpected(app_res.error());
+        if (!app_res.has_value()) {
+            rollback();
+            return std::unexpected(app_res.error());
+        }
 
         // Record Epistemic Action execution
         auto ep_event = rec_.create_event(
@@ -543,7 +652,10 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             current_epoch_id
         );
         auto app_ep = rec_.append(std::move(ep_event));
-        if (!app_ep.has_value()) return std::unexpected(app_ep.error());
+        if (!app_ep.has_value()) {
+            rollback();
+            return std::unexpected(app_ep.error());
+        }
     }
 
     // 6. Enforce Safety Directive upon Domain Substrate
@@ -574,13 +686,24 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
         current_epoch_id
     );
     auto app_ra = rec_.append(std::move(ra_event));
-    if (!app_ra.has_value()) return std::unexpected(app_ra.error());
+    if (!app_ra.has_value()) {
+        rollback();
+        return std::unexpected(app_ra.error());
+    }
 
-    // 7. Constitutional Violation Halt (Monotonically latches constitutive_status_)
-    if (verification.status == constitution::ConstitutiveStatus::Violated) {
-        constitutive_status_ = constitution::ConstitutiveStatus::Violated;
-        domain_.suspend_action();
-        return std::unexpected(core::EnteError::ConstitutiveViolation);
+    // The complete epistemic decision is one durable generation, just like an
+    // action phase. No observation or authorization remains half-committed.
+    if (journal_path_.has_value()) {
+        auto persisted = journal_signer_.has_value()
+            ? rec_.save_authenticated_to_file(
+                *journal_path_, *journal_signer_, journal_options_)
+            : rec_.save_to_file(*journal_path_, journal_options_);
+        if (!persisted.has_value()) {
+            if (persisted.error() != core::EnteError::PersistenceCommitUncertain) {
+                rollback();
+            }
+            return std::unexpected(persisted.error());
+        }
     }
 
     DecisionTrace trace{
@@ -801,7 +924,10 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::observe_
     auto rec_before_effect_observations = rec_;
     for (const auto& observation : effect_observations) {
         if (observation.id.empty() ||
+            observation.source.empty() ||
+            observation.subject.empty() ||
             observation.observed_at > time ||
+            rec_.contains_evidence(observation.id) ||
             (observation.status != epistemic::EpistemicStatus::Observed &&
              observation.status != epistemic::EpistemicStatus::Derived) ||
             !batch_evidence_ids.insert(observation.id.value).second) {
@@ -817,13 +943,14 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::observe_
             time,
             {rec_.head().id},
             {observation.id},
-            std::format(
-                "EFFECT_OBSERVE:{}:{}:{}:{}",
-                observation.source,
-                observation.subject,
-                observation.value,
-                epistemic::to_string(observation.status)
-            ),
+            history::serialize_observation_payload({
+                .evidence_id = observation.id,
+                .source = observation.source,
+                .subject = observation.subject,
+                .value = observation.value,
+                .status = observation.status,
+                .observed_at = observation.observed_at
+            }),
             authority_id,
             epoch_id
         );
