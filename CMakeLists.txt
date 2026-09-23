@@ -78,6 +78,10 @@ add_executable(test_persistence_restart tests/test_persistence_restart.cpp)
 target_link_libraries(test_persistence_restart PRIVATE ente_core)
 add_test(NAME test_persistence_restart COMMAND test_persistence_restart)
 
+add_executable(test_persistence_faults tests/test_persistence_faults.cpp)
+target_link_libraries(test_persistence_faults PRIVATE ente_core)
+add_test(NAME test_persistence_faults COMMAND test_persistence_faults)
+
 add_executable(test_action_transaction tests/test_action_transaction.cpp)
 target_link_libraries(test_action_transaction PRIVATE ente_core)
 add_test(NAME test_action_transaction COMMAND test_action_transaction)
@@ -177,4 +181,3 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/EnteConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Ente
 )
-

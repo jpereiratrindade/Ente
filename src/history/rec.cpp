@@ -289,9 +289,20 @@ bool sync_parent_directory(const std::string& path) noexcept {
 #endif
 }
 
+bool operation_enabled(
+    const PersistenceOptions& options,
+    PersistenceOperation operation
+) noexcept {
+    return options.before_operation == nullptr ||
+        options.before_operation(operation, options.context);
+}
+
 } // namespace
 
-std::expected<void, core::EnteError> RecoverableHistory::save_to_file(std::string_view filepath) const noexcept {
+std::expected<void, core::EnteError> RecoverableHistory::save_to_file(
+    std::string_view filepath,
+    PersistenceOptions options
+) const noexcept {
     try {
         std::string target_path(filepath);
         std::string tmp_path = target_path + ".tmp";
@@ -299,7 +310,7 @@ std::expected<void, core::EnteError> RecoverableHistory::save_to_file(std::strin
         {
             std::ofstream out(tmp_path, std::ios::out | std::ios::trunc);
             if (!out.is_open()) {
-                return std::unexpected(core::EnteError::HistoryCorrupt);
+                return std::unexpected(core::EnteError::PersistenceFailure);
             }
 
             // Header for format versioning
@@ -333,31 +344,42 @@ std::expected<void, core::EnteError> RecoverableHistory::save_to_file(std::strin
             }
             out.flush();
             if (!out.good()) {
-                return std::unexpected(core::EnteError::HistoryCorrupt);
+                return std::unexpected(core::EnteError::PersistenceFailure);
+            }
+            out.close();
+            if (!out.good()) {
+                return std::unexpected(core::EnteError::PersistenceFailure);
             }
         }
 
-        if (!sync_path_to_storage(tmp_path)) {
+        if (!operation_enabled(options, PersistenceOperation::SyncTemporaryFile) ||
+            !sync_path_to_storage(tmp_path)) {
             std::error_code cleanup_error;
             std::filesystem::remove(tmp_path, cleanup_error);
-            return std::unexpected(core::EnteError::HistoryCorrupt);
+            return std::unexpected(core::EnteError::PersistenceFailure);
         }
 
         std::error_code ec;
+        if (!operation_enabled(options, PersistenceOperation::ReplaceTarget)) {
+            std::error_code cleanup_error;
+            std::filesystem::remove(tmp_path, cleanup_error);
+            return std::unexpected(core::EnteError::PersistenceFailure);
+        }
         std::filesystem::rename(tmp_path, target_path, ec);
         if (ec) {
             std::error_code cleanup_error;
             std::filesystem::remove(tmp_path, cleanup_error);
-            return std::unexpected(core::EnteError::HistoryCorrupt);
+            return std::unexpected(core::EnteError::PersistenceFailure);
         }
 
-        if (!sync_parent_directory(target_path)) {
-            return std::unexpected(core::EnteError::HistoryCorrupt);
+        if (!operation_enabled(options, PersistenceOperation::SyncParentDirectory) ||
+            !sync_parent_directory(target_path)) {
+            return std::unexpected(core::EnteError::PersistenceFailure);
         }
 
         return {};
     } catch (...) {
-        return std::unexpected(core::EnteError::HistoryCorrupt);
+        return std::unexpected(core::EnteError::PersistenceFailure);
     }
 }
 

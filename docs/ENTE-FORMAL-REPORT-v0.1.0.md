@@ -15,7 +15,7 @@ O sistema foi submetido a uma suíte de 18 baterias de testes automatizados comp
 5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat, Bomba de Infusão Crítica em UTI e Estação de Campo / Irrigação);
 6. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
 
-**Status de Verificação:** 18/18 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
+**Status de Verificação:** 19/19 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
 
 ---
 
@@ -97,11 +97,11 @@ Demonstrado com conformidade integral em três domínios sintéticos de bancada 
 
 ## 6. Verificação de Memória com AddressSanitizer & LeakSanitizer
 
-Toda a suíte de 18 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
+Toda a suíte de 19 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
 * **Memory Leaks**: `0 bytes` vazados.
 * **Buffer Overflows**: `0 ocorrências`.
 * **Use-After-Free / Double-Free**: `0 ocorrências`.
-* **Resultado**: `18/18 Passed` sob instrumentação total no ambiente avaliado.
+* **Resultado**: `19/19 Passed` sob instrumentação total no ambiente avaliado.
 
 ---
 

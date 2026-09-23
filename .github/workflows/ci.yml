@@ -1,4 +1,4 @@
-name: C++26 ENTE-0 Verification CI
+name: C++23 ENTE-0 Verification CI
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
             build_type: Debug
             enable_sanitizers: ON
 
-          - name: Clang 18 (C++26)
+          - name: Clang 18 (C++23)
             compiler: clang++-18
             pkg: clang-18
             build_type: Release

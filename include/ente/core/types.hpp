@@ -77,6 +77,7 @@ enum class EnteError : uint8_t {
     DuplicateEventId,
     InvalidLogicalTime,
     InvalidSignature,
+    PersistenceFailure,
     DuplicateActionTransaction,
     ActionTransactionNotFound,
     InvalidActionTransition
@@ -97,6 +98,7 @@ enum class EnteError : uint8_t {
         case EnteError::DuplicateEventId: return "DuplicateEventId";
         case EnteError::InvalidLogicalTime: return "InvalidLogicalTime";
         case EnteError::InvalidSignature: return "InvalidSignature";
+        case EnteError::PersistenceFailure: return "PersistenceFailure";
         case EnteError::DuplicateActionTransaction: return "DuplicateActionTransaction";
         case EnteError::ActionTransactionNotFound: return "ActionTransactionNotFound";
         case EnteError::InvalidActionTransition: return "InvalidActionTransition";

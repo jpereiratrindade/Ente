@@ -50,7 +50,7 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 | Distinção autorização/execução/efeito | `VERIFIED` | `test_action_transaction` | Confirmação depende da qualidade da telemetria fornecida |
 | Recuperação de ação interrompida | `VERIFIED` | Dispatch incompleto retorna como `RECOVERY_REQUIRED` e `SafeHold` | REC precisa ter sido persistido |
 | Payload transacional canônico | `VERIFIED` | Round-trip com delimitadores e newline | Não é ainda um schema externo padronizado |
-| Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Journal opcional persiste e executa fsync de cada fase antes do retorno; teste de restart sem `save` explícito | A garantia exige journal configurado e semântica de fsync suportada pela plataforma/filesystem |
+| Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Journal opcional persiste cada fase antes do retorno; restart sem `save` explícito e falhas injetadas em fsync/rename/fsync do diretório | A garantia exige journal configurado; power loss físico e semântica do hardware/filesystem ainda não foram ensaiados |
 | REC autenticado | `OUT_OF_SCOPE` na versão atual | Nenhuma assinatura assimétrica por evento | Hash-chain fornece integridade, não autenticidade |
 | Atestação de hardware | `SIMULATED` | Fixture RATS local | Sem TPM/TEE real |
 | C11 — linhagem distribuída | `NOT_APPLICABLE` | Perfil mono-nó | Obrigatório apenas em `ENTE-DISTRIBUTED` |
@@ -67,7 +67,8 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 
 ## 5. Próximo gate
 
-O próximo gate para `ENTE-1 VERIFIED LOCAL CORE` é testar interrupção real ou
-injetada entre todas as transições factuais, incluindo falha de fsync, rename e
-confirmação de efeito. A implementação atual cobre restart após dispatch já
-persistido, mas não reivindica ainda cobertura exaustiva de power loss.
+O próximo gate para `ENTE-1 VERIFIED LOCAL CORE` é executar interrupção física
+entre todas as transições factuais e confirmação de efeito. A implementação
+agora cobre falhas determinísticas nas operações de fsync, rename e fsync do
+diretório, além de restart após dispatch persistido, mas não reivindica ainda
+cobertura de power loss real nem garantias além do hardware/filesystem ensaiado.

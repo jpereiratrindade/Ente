@@ -11,6 +11,22 @@
 
 namespace ente::history {
 
+enum class PersistenceOperation : uint8_t {
+    SyncTemporaryFile,
+    ReplaceTarget,
+    SyncParentDirectory
+};
+
+// An empty options object is the production path. The hook is invoked
+// immediately before each durability operation; returning false injects that
+// operation's failure for deterministic recovery tests.
+struct PersistenceOptions {
+    using BeforeOperationHook = bool (*)(PersistenceOperation, void*) noexcept;
+
+    BeforeOperationHook before_operation{nullptr};
+    void* context{nullptr};
+};
+
 class RecoverableHistory {
 public:
     RecoverableHistory() = default;
@@ -49,7 +65,10 @@ public:
     ) const noexcept;
 
     // File persistence and crash-recovery methods
-    [[nodiscard]] std::expected<void, core::EnteError> save_to_file(std::string_view filepath) const noexcept;
+    [[nodiscard]] std::expected<void, core::EnteError> save_to_file(
+        std::string_view filepath,
+        PersistenceOptions options = {}
+    ) const noexcept;
     [[nodiscard]] static std::expected<RecoverableHistory, core::EnteError> load_from_file(std::string_view filepath) noexcept;
 
     // Direct mutation for tamper-testing (used strictly by tests to falsify C12)
