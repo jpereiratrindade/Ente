@@ -1,5 +1,5 @@
 #include "ente/core/prng.hpp"
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 #include <iostream>
 
 int main() {
@@ -15,11 +15,11 @@ int main() {
     uint64_t val_e2_pA = prng.derive_u64(ev2, "sensor_noise_filter");
 
     // 2. Determinism check
-    assert(val_e1_pA == prng.derive_u64(ev1, "exploration_decision"));
-    assert(val_e2_pA == prng.derive_u64(ev2, "sensor_noise_filter"));
+    ENTE_TEST_ASSERT_EQ(val_e1_pA, prng.derive_u64(ev1, "exploration_decision"));
+    ENTE_TEST_ASSERT_EQ(val_e2_pA, prng.derive_u64(ev2, "sensor_noise_filter"));
 
     // 3. Different events / purposes produce distinct entropy
-    assert(val_e1_pA != val_e2_pA);
+    ENTE_TEST_ASSERT_NE(val_e1_pA, val_e2_pA);
 
     // 4. Immunity to interleaved invocations (Adding random calls to E1 DOES NOT shift E2!)
     uint64_t extra_call_1 = prng.derive_u64(ev1, "extra_debug_call_1");
@@ -28,12 +28,13 @@ int main() {
     (void)extra_call_2;
 
     // E2 remains 100% identical even after intermediate calls to E1
-    assert(val_e2_pA == prng.derive_u64(ev2, "sensor_noise_filter"));
+    ENTE_TEST_ASSERT_EQ(val_e2_pA, prng.derive_u64(ev2, "sensor_noise_filter"));
 
     // Floating-point derivation in [0.0, 1.0)
     double d1 = prng.derive_double(ev1, "exploration_rate");
-    assert(d1 >= 0.0 && d1 < 1.0);
+    ENTE_TEST_ASSERT(d1 >= 0.0 && d1 < 1.0);
 
     std::cout << "[PASS] test_prng: Event-scoped deterministic entropy verified (immune to sequence shifting).\n";
     return 0;
 }
+

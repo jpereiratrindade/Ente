@@ -1,8 +1,8 @@
 #include "ente/realization/runner.hpp"
+#include "ente/testing/test_harness.hpp"
 #include <iostream>
 #include <iomanip>
 #include <chrono>
-#include <cassert>
 
 int main() {
     std::cout << "======================================================================\n";
@@ -14,7 +14,7 @@ int main() {
 
     ente::realization::EnteRealization ente;
     ente::core::IdentityId id("ente-longevity-identity");
-    assert(ente.genesis(id).has_value());
+    ENTE_TEST_ASSERT(ente.genesis(id).has_value());
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -28,7 +28,7 @@ int main() {
             .status = ente::epistemic::EpistemicStatus::Observed
         }}, "Continuous longevity stream");
 
-        assert(res.has_value());
+        ENTE_TEST_ASSERT(res.has_value());
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -48,9 +48,9 @@ int main() {
     // Periodic / Final Full Audit (O(H))
     std::cout << "[Audit] Executing full historical audit from Genesis to HEAD (" << committed_events << " events)...\n";
     auto full_audit_start = std::chrono::high_resolution_clock::now();
-    assert(ente.history().verify_integrity());
+    ENTE_TEST_ASSERT(ente.history().verify_integrity());
     auto final_report = ente.verify();
-    assert(final_report.is_valid());
+    ENTE_TEST_ASSERT(final_report.is_valid());
     auto full_audit_end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> audit_duration = full_audit_end - full_audit_start;
 
@@ -58,3 +58,4 @@ int main() {
     std::cout << ">>> 10,000 CONTINUOUS TRANSITIONS EXECUTED WITH FULL SCALABILITY AND CAUSAL INTEGRITY <<<\n";
     return 0;
 }
+

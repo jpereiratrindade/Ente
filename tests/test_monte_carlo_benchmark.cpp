@@ -1,9 +1,9 @@
 #include "ente/realization/runner.hpp"
 #include "ente/core/prng.hpp"
+#include "ente/testing/test_harness.hpp"
 #include <iostream>
 #include <iomanip>
 #include <vector>
-#include <cassert>
 #include <fstream>
 
 namespace {
@@ -28,7 +28,7 @@ int main() {
 
     ente::realization::EnteRealization ente;
     ente::core::IdentityId id("ente-monte-carlo");
-    assert(ente.genesis(id).has_value());
+    ENTE_TEST_ASSERT(ente.genesis(id).has_value());
 
     size_t total_hazardous_cases = 0;
     size_t total_safe_cases = 0;
@@ -160,7 +160,7 @@ int main() {
 
         // 5. Evaluate ENTE-0
         auto step_res = ente.step(iter, obs, "Monte Carlo Step");
-        assert(step_res.has_value());
+        ENTE_TEST_ASSERT(step_res.has_value());
 
         bool ente_depart = !ente.domain().is_action_suspended();
         if (is_hazardous && ente_depart) ente_unjustified++;
@@ -196,12 +196,12 @@ int main() {
     std::cout << std::string(74, '-') << "\n\n";
 
     // Rigorous Statistical Invariant Asserts
-    assert(ente_unjustified == 0); // Strictly 0.0% accidents across 5,000 transitions
-    assert(ente_unnecessary == 0); // Strictly 0.0% nuisance stops
-    assert(b0_unjustified > 0);
-    assert(b1_unjustified > 0);
-    assert(b2_unnecessary > 0);
-    assert(b3_unjustified > 0);
+    ENTE_TEST_ASSERT_EQ(ente_unjustified, 0); // Strictly 0.0% accidents across 5,000 transitions
+    ENTE_TEST_ASSERT_EQ(ente_unnecessary, 0); // Strictly 0.0% nuisance stops
+    ENTE_TEST_ASSERT(b0_unjustified > 0);
+    ENTE_TEST_ASSERT(b1_unjustified > 0);
+    ENTE_TEST_ASSERT(b2_unnecessary > 0);
+    ENTE_TEST_ASSERT(b3_unjustified > 0);
 
     // Export CSV dataset for scientific reporting
     std::ofstream csv_out("monte_carlo_metrics.csv", std::ios::out | std::ios::trunc);
@@ -224,9 +224,10 @@ int main() {
     }
 
     // Cryptographic history integrity
-    assert(ente.history().verify_integrity());
-    assert(ente.history().size() > TOTAL_ITERATIONS);
+    ENTE_TEST_ASSERT(ente.history().verify_integrity());
+    ENTE_TEST_ASSERT(ente.history().size() > TOTAL_ITERATIONS);
 
     std::cout << ">>> PARETO-DOMINANCE OBSERVED OVER 5,000 EVALUATED STOCHASTIC TRANSITIONS <<<\n";
     return 0;
 }
+

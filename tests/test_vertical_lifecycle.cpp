@@ -1,7 +1,7 @@
 #include "ente/realization/runner.hpp"
 #include "ente/attestation/rats.hpp"
 #include "ente/core/hash.hpp"
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 #include <iostream>
 #include <filesystem>
 
@@ -34,9 +34,9 @@ int main() {
         };
 
         auto gen_res = process_a.genesis(ente_id, tpm_anchor);
-        assert(gen_res.has_value());
-        assert(process_a.material_bindings().has_active_binding());
-        assert(process_a.material_bindings().active_binding().anchor.id == tpm_anchor.id);
+        ENTE_TEST_ASSERT(gen_res.has_value());
+        ENTE_TEST_ASSERT(process_a.material_bindings().has_active_binding());
+        ENTE_TEST_ASSERT(process_a.material_bindings().active_binding().anchor.id == tpm_anchor.id);
 
         std::cout << "[2] Step 1: Nominal Observation & Action Allow...\n";
         core::EvidenceId ev1("EV-V1");
@@ -48,9 +48,9 @@ int main() {
             .observed_at = 1,
             .status = epistemic::EpistemicStatus::Observed
         }}, "t1: Nominal");
-        assert(s1.has_value());
-        assert(process_a.domain().active_action() == realization::SyntheticDomain::Action::MoveForward);
-        assert(!process_a.domain().is_action_suspended());
+        ENTE_TEST_ASSERT(s1.has_value());
+        ENTE_TEST_ASSERT(process_a.domain().active_action() == realization::SyntheticDomain::Action::MoveForward);
+        ENTE_TEST_ASSERT(!process_a.domain().is_action_suspended());
 
         std::cout << "[3] Step 2: Perturbation -> RCC Weakened -> RuntimeAssurance SafeHold...\n";
         core::EvidenceId ev2("EV-V2");
@@ -62,9 +62,9 @@ int main() {
             .observed_at = 2,
             .status = epistemic::EpistemicStatus::Unknown // C8: Explicit unknown
         }}, "t2: Perturbation");
-        assert(s2.has_value());
-        assert(process_a.domain().is_action_suspended());
-        assert(process_a.domain().active_action() == realization::SyntheticDomain::Action::HoldPosition);
+        ENTE_TEST_ASSERT(s2.has_value());
+        ENTE_TEST_ASSERT(process_a.domain().is_action_suspended());
+        ENTE_TEST_ASSERT(process_a.domain().active_action() == realization::SyntheticDomain::Action::HoldPosition);
 
         std::cout << "[4] Step 3: Hardware Migration under RIT (Ship of Theseus: TPM Alpha -> Secure Enclave Beta)...\n";
         identity::MaterialAnchor enclave_anchor{
@@ -74,13 +74,13 @@ int main() {
         };
 
         auto mig_res = process_a.migrate_hardware(enclave_anchor, 3);
-        assert(mig_res.has_value());
-        assert(process_a.identity().id == ente_id); // IDENTITY PRESERVED
-        assert(process_a.material_bindings().active_binding().anchor.id == enclave_anchor.id);
+        ENTE_TEST_ASSERT(mig_res.has_value());
+        ENTE_TEST_ASSERT_EQ(process_a.identity().id, ente_id); // IDENTITY PRESERVED
+        ENTE_TEST_ASSERT(process_a.material_bindings().active_binding().anchor.id == enclave_anchor.id);
 
         std::cout << "[5] Persisting full historical REC to disk and shutting down Process A...\n";
         auto save_res = process_a.history().save_to_file(test_file);
-        assert(save_res.has_value());
+        ENTE_TEST_ASSERT(save_res.has_value());
     } // Process A terminates completely here
 
     // =========================================================================
@@ -89,22 +89,22 @@ int main() {
     {
         std::cout << "\n[6] Process B starting: Cold Recovery from file...\n";
         auto recover_res = realization::EnteRealization::recover_from_file(test_file);
-        assert(recover_res.has_value());
+        ENTE_TEST_ASSERT(recover_res.has_value());
 
         auto& process_b = *recover_res;
-        assert(process_b.identity().id == ente_id);
-        assert(process_b.identity().lifecycle == identity::LifecycleStatus::LifeActive);
-        assert(process_b.history().verify_integrity());
-        assert(process_b.material_bindings().has_active_binding());
-        assert(process_b.material_bindings().active_binding().anchor.id == identity::MaterialAnchorId("secure-enclave-beta"));
-        assert(process_b.material_bindings().active_binding().anchor.hardware_fingerprint == "fp-enclave-beta-attestation-002");
-        assert(process_b.material_bindings().active_binding().previous_anchor.has_value());
-        assert(*process_b.material_bindings().active_binding().previous_anchor == identity::MaterialAnchorId("tpm-hardware-alpha"));
+        ENTE_TEST_ASSERT_EQ(process_b.identity().id, ente_id);
+        ENTE_TEST_ASSERT(process_b.identity().lifecycle == identity::LifecycleStatus::LifeActive);
+        ENTE_TEST_ASSERT(process_b.history().verify_integrity());
+        ENTE_TEST_ASSERT(process_b.material_bindings().has_active_binding());
+        ENTE_TEST_ASSERT(process_b.material_bindings().active_binding().anchor.id == identity::MaterialAnchorId("secure-enclave-beta"));
+        ENTE_TEST_ASSERT_EQ(process_b.material_bindings().active_binding().anchor.hardware_fingerprint, "fp-enclave-beta-attestation-002");
+        ENTE_TEST_ASSERT(process_b.material_bindings().active_binding().previous_anchor.has_value());
+        ENTE_TEST_ASSERT(*process_b.material_bindings().active_binding().previous_anchor == identity::MaterialAnchorId("tpm-hardware-alpha"));
 
         std::cout << "[7] Verifying 2nd Genesis is strictly rejected...\n";
         auto gen2_res = process_b.genesis(ente_id);
-        assert(!gen2_res.has_value());
-        assert(gen2_res.error() == core::EnteError::GenesisAlreadyExists);
+        ENTE_TEST_ASSERT(!gen2_res.has_value());
+        ENTE_TEST_ASSERT(gen2_res.error() == core::EnteError::GenesisAlreadyExists);
 
         std::cout << "[8] Independent RATS Attestation Evaluation...\n";
         attestation::IndependentAttestationVerifier attestation_verifier;
@@ -138,19 +138,19 @@ int main() {
         };
 
         auto attestation_result = attestation_verifier.evaluate(evidence, constitution_digest);
-        assert(attestation_result.verdict == attestation::AppraisalVerdict::TrustworthyVerified);
-        assert(attestation_result.satisfies_constitutional_floor);
+        ENTE_TEST_ASSERT(attestation_result.verdict == attestation::AppraisalVerdict::TrustworthyVerified);
+        ENTE_TEST_ASSERT(attestation_result.satisfies_constitutional_floor);
 
         // Adversarial Replay / Missing Signature test:
         attestation::AttestationEvidence unsigned_evidence = evidence;
         unsigned_evidence.attestation_signature = core::Digest();
         auto unauth_res = attestation_verifier.evaluate(unsigned_evidence, constitution_digest);
-        assert(unauth_res.verdict == attestation::AppraisalVerdict::StructurallyAcceptable);
-        assert(!unauth_res.satisfies_constitutional_floor); // Must NOT satisfy floor without signature!
+        ENTE_TEST_ASSERT(unauth_res.verdict == attestation::AppraisalVerdict::StructurallyAcceptable);
+        ENTE_TEST_ASSERT(!unauth_res.satisfies_constitutional_floor); // Must NOT satisfy floor without signature!
 
         std::cout << "[9] Full Constitutional Invariant Verification (C1..C14)...\n";
         auto rep = process_b.verify();
-        assert(rep.is_valid());
+        ENTE_TEST_ASSERT(rep.is_valid());
 
         std::cout << "\n[SUCCESS] Vertical demonstration complete: The ENTE was born, perturbed, migrated across hardware,\n"
                   << "          persisted, recovered cold, attested independently, and maintained its continuous identity!\n";
@@ -159,3 +159,4 @@ int main() {
     std::filesystem::remove(test_file);
     return 0;
 }
+

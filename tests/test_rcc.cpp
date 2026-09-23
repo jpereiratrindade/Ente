@@ -1,6 +1,6 @@
 #include "ente/rcc/reassessment.hpp"
 #include "ente/judgment/fixture.hpp"
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 #include <iostream>
 
 int main() {
@@ -9,7 +9,7 @@ int main() {
     rcc::ContextReassessment rcc_engine;
     judgment::FixtureJudgmentEngine judgment;
 
-    assert(rcc_engine.current_state() == rcc::RCCState::Stable);
+    ENTE_TEST_ASSERT(rcc_engine.current_state() == rcc::RCCState::Stable);
 
     core::InterpretationId interp_id("I0001");
     core::EvidenceId ev_nominal("EV-NOMINAL");
@@ -37,10 +37,10 @@ int main() {
     };
 
     auto res1 = rcc_engine.evaluate(current, obs_nominal, judgment);
-    assert(res1.compatibility == judgment::CompatibilityResult::Supported);
-    assert(res1.epistemic_action == rcc::EpistemicAction::Keep);
-    assert(rcc_engine.current_state() == rcc::RCCState::Stable);
-    assert(current.status == epistemic::InterpretationStatus::Supported);
+    ENTE_TEST_ASSERT(res1.compatibility == judgment::CompatibilityResult::Supported);
+    ENTE_TEST_ASSERT(res1.epistemic_action == rcc::EpistemicAction::Keep);
+    ENTE_TEST_ASSERT(rcc_engine.current_state() == rcc::RCCState::Stable);
+    ENTE_TEST_ASSERT(current.status == epistemic::InterpretationStatus::Supported);
 
     // Cycle 2: Unexpected Motion Anomaly -> Weakened & SuspendAction
     core::EvidenceId ev_anomaly("EV-ANOMALY");
@@ -56,13 +56,14 @@ int main() {
     };
 
     auto res2 = rcc_engine.evaluate(current, obs_anomaly, judgment);
-    assert(res2.compatibility == judgment::CompatibilityResult::Weakened);
-    assert(res2.epistemic_action == rcc::EpistemicAction::SuspendAction);
-    assert(rcc_engine.current_state() == rcc::RCCState::Suspended);
-    assert(current.status == epistemic::InterpretationStatus::Weakened);
-    assert(!current.challenging_evidence.empty());
-    assert(current.challenging_evidence.back() == ev_anomaly);
+    ENTE_TEST_ASSERT(res2.compatibility == judgment::CompatibilityResult::Weakened);
+    ENTE_TEST_ASSERT(res2.epistemic_action == rcc::EpistemicAction::SuspendAction);
+    ENTE_TEST_ASSERT(rcc_engine.current_state() == rcc::RCCState::Suspended);
+    ENTE_TEST_ASSERT(current.status == epistemic::InterpretationStatus::Weakened);
+    ENTE_TEST_ASSERT(!current.challenging_evidence.empty());
+    ENTE_TEST_ASSERT_EQ(current.challenging_evidence.back(), ev_anomaly);
 
     std::cout << "[PASS] test_rcc: Continuous Context Reassessment & Action Suspension (C6, C7) verified.\n";
     return 0;
 }
+

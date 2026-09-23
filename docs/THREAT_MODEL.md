@@ -1,18 +1,43 @@
-# ENTE Threat Model & Boundary of Guarantees (v1.0.0)
+# ENTE Threat Model & Boundary of Guarantees (v1.1.0)
 
 > **Document ID:** `ENTE-THREAT-MODEL-001`  
-> **Status:** `ACTIVE / NORMATIVE`  
+> **Status:** `NORMATIVE REFERENCE`  
 > **Target Substrate:** ENTE-0 Local Core (Single-Node Host Environment)
 
 ---
 
-## 1. Escopo e Propósito
+## 1. Definição Constitutiva
 
-Este documento estabelece formalmente os limites de segurança, as premissas operacionais e a matriz de garantias do **ENTE-0**. O objetivo deste modelo é eliminar qualquer presunção injustificada de segurança (*safety theater*) e delimitar com precisão matemática e arquitetural o que o sistema **garante**, o que ele **simula** e o que está **fora de escopo** nesta realização.
+> **ENTE** é uma arquitetura computacional para preservar uma **trajetória constitutivamente justificável**, na qual aquilo que foi **observado**, **interpretado**, **julgado**, **autorizado**, **executado** e **posteriormente confirmado** permanece **distinguível**, **causalmente ligado**, **recuperável** e **auditável** ao longo da transformação.
 
 ---
 
-## 2. Vetores de Ameaça e Fronteiras de Confiança
+## 2. Princípios Fundamentais de Engenharia
+
+1. 📜 **Princípio 1 (Evidência Constitutiva):**  
+   *Nenhum invariante pode ser satisfeito por construção sem evidência verificável.*
+
+2. 📜 **Princípio 2 (Factualidade Operacional):**  
+   *Nenhuma ação pode ser considerada realizada apenas porque foi autorizada ou porque o executor disse que a realizou.*
+
+---
+
+## 3. Hierarquia Formal de Ameaças (T0 a T5)
+
+Para evitar alegações impossíveis ou presunções de segurança injustificadas (*safety theater*), o ENTE classifica formalmente as classes de adversários e falhas:
+
+| Nível | Classe de Ameaça | Descrição e Vetor de Falha | Mitigação / Garantia no ENTE-0 | Limite de Defesa |
+| :--- | :--- | :--- | :--- | :--- |
+| **T0** | **Falha Acidental** | Bit-flips em RAM, crash de processo, perda súbita de energia durante E/S. | Protocolo de ação recuperável, gravação atômica (`save_to_file`) e fsync. | Totalmente mitigado no REC local. |
+| **T1** | **Corrupção de Armazenamento** | Truncamento no disco, falha de setor, blocos corrompidos no log histórico. | Detecção de truncamento na inicialização, checksum SHA-256 por evento. | Recuperação segura em `SafeHold`. |
+| **T2** | **Atacante com Acesso Offline ao REC** | Invasor que modifica eventos históricos no arquivo em disco enquanto o processo está inativo. | Hash-chain SHA-256 linear + RIT causal + verificação de integridade C10/C12. | Detecta adulteração; sem chave, não impede recomputação de hashes locais. |
+| **T3** | **Atacante Controla o Processo ENTE** | Código hostil injetado no espaço de endereço de memória do processo ativo. | Ancoragem de integridade de Gênese imutável e verificadores constitutivos externos. | O processo comprometido pode falsificar deliberações se possuir a chave local. |
+| **T4** | **Atacante com Privilégios Root / Host** | Atacante capaz de substituir o arquivo REC por um snapshot antigo válido (Ataque de Rollback). | Requer âncora externa imutável (TPM Monotonic Counter, remote witness ou append-only external ledger). | Hash-chain sozinho NÃO previne rollback para versão antiga autêntica sem âncora externa. |
+| **T5** | **Comprometimento de Chave / Hardware Root** | Extração da chave privada mestra ou clonagem física do enclave/TPM. | Fora do escopo local; requer revogação de autoridade na época subsequente (C14). | Requer protocolo de autoridade multi-assinada e rotação de época. |
+
+---
+
+## 4. Vetores de Ameaça e Fronteiras de Confiança
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┐

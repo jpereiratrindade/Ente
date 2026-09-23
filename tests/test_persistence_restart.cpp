@@ -1,6 +1,6 @@
 #include "ente/realization/runner.hpp"
 #include "ente/history/rec.hpp"
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 #include <iostream>
 #include <filesystem>
 
@@ -21,7 +21,7 @@ int main() {
     {
         realization::EnteRealization process_a;
         auto gen_res = process_a.genesis(id);
-        assert(gen_res.has_value());
+        ENTE_TEST_ASSERT(gen_res.has_value());
 
         // Step 1
         core::EvidenceId ev1("EV-P1");
@@ -33,12 +33,12 @@ int main() {
             .observed_at = 1,
             .status = epistemic::EpistemicStatus::Observed
         }}, "Nominal step in Process A");
-        assert(s1.has_value());
+        ENTE_TEST_ASSERT(s1.has_value());
 
         // Save history to disk
         auto save_res = process_a.history().save_to_file(test_file);
-        assert(save_res.has_value());
-        assert(process_a.history().size() >= 3); // Genesis, Obs, Interp, ActionExecution
+        ENTE_TEST_ASSERT(save_res.has_value());
+        ENTE_TEST_ASSERT(process_a.history().size() >= 3); // Genesis, Obs, Interp, ActionExecution
     } // Process A terminates completely here
 
     // ==========================================
@@ -48,19 +48,19 @@ int main() {
     {
         // 1. Cold recovery: Instantiate Process B directly from the persisted REC file
         auto recover_res = realization::EnteRealization::recover_from_file(test_file);
-        assert(recover_res.has_value());
+        ENTE_TEST_ASSERT(recover_res.has_value());
 
         auto& process_b = *recover_res;
         size_t initial_b_size = process_b.history().size();
-        assert(initial_b_size >= 3);
-        assert(process_b.identity().id == id);
-        assert(process_b.identity().lifecycle == identity::LifecycleStatus::LifeActive);
-        assert(process_b.history().verify_integrity());
+        ENTE_TEST_ASSERT(initial_b_size >= 3);
+        ENTE_TEST_ASSERT_EQ(process_b.identity().id, id);
+        ENTE_TEST_ASSERT(process_b.identity().lifecycle == identity::LifecycleStatus::LifeActive);
+        ENTE_TEST_ASSERT(process_b.history().verify_integrity());
 
         // 2. ATTEMPT 2ND GENESIS ON RECOVERED ENTE -> MUST BE REJECTED!
         auto gen2_res = process_b.genesis(id);
-        assert(!gen2_res.has_value());
-        assert(gen2_res.error() == core::EnteError::GenesisAlreadyExists);
+        ENTE_TEST_ASSERT(!gen2_res.has_value());
+        ENTE_TEST_ASSERT(gen2_res.error() == core::EnteError::GenesisAlreadyExists);
 
         // 3. Process B continues life: executes Step 2
         core::EvidenceId ev2("EV-P2");
@@ -72,12 +72,12 @@ int main() {
             .observed_at = 2,
             .status = epistemic::EpistemicStatus::Observed
         }}, "Step in Process B after cold recovery");
-        assert(s2.has_value());
-        assert(process_b.history().size() > initial_b_size); // Continuous uninterrupted history
+        ENTE_TEST_ASSERT(s2.has_value());
+        ENTE_TEST_ASSERT(process_b.history().size() > initial_b_size); // Continuous uninterrupted history
 
         // 4. Verification on recovered and evolved ENTE
         auto rep = process_b.verify();
-        assert(rep.is_valid());
+        ENTE_TEST_ASSERT(rep.is_valid());
     }
 
     // Cleanup
@@ -86,3 +86,4 @@ int main() {
     std::cout << "[PASS] test_persistence_restart: Cold recovery from file, 2nd Genesis rejection & life continuation verified.\n";
     return 0;
 }
+

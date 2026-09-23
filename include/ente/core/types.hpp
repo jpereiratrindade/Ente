@@ -96,3 +96,25 @@ enum class EnteError : uint8_t {
 }
 
 } // namespace ente::core
+
+template <typename Tag>
+struct std::formatter<ente::core::StrongId<Tag>, char> : std::formatter<std::string_view, char> {
+    auto format(const ente::core::StrongId<Tag>& id, std::format_context& ctx) const {
+        return std::formatter<std::string_view, char>::format(id.view(), ctx);
+    }
+};
+
+template <>
+struct std::formatter<ente::core::Digest, char> : std::formatter<std::string_view, char> {
+    auto format(const ente::core::Digest& d, std::format_context& ctx) const {
+        return std::formatter<std::string_view, char>::format(d.value, ctx);
+    }
+};
+
+template <>
+struct std::formatter<ente::core::EnteError, char> : std::formatter<std::string_view, char> {
+    auto format(ente::core::EnteError err, std::format_context& ctx) const {
+        return std::formatter<std::string_view, char>::format(ente::core::to_string(err), ctx);
+    }
+};
+

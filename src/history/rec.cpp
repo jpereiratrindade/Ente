@@ -314,6 +314,8 @@ std::expected<RecoverableHistory, core::EnteError> RecoverableHistory::load_from
             if (k == "JUDGMENT") return EventKind::Judgment;
             if (k == "ACTION_INTENDED") return EventKind::ActionIntended;
             if (k == "ACTION_EXECUTION") return EventKind::ActionExecution;
+            if (k == "ACTION_EXECUTION_ACK") return EventKind::ActionExecutionAck;
+            if (k == "EFFECT_OBSERVATION") return EventKind::EffectObservation;
             if (k == "EPISTEMIC_ACTION") return EventKind::EpistemicAction;
             if (k == "REINTERPRETATION") return EventKind::Reinterpretation;
             if (k == "ADAPTATION") return EventKind::Adaptation;

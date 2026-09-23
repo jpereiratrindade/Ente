@@ -1,6 +1,6 @@
 #include "ente/identity/genesis_service.hpp"
 #include "ente/core/hash.hpp"
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 #include <iostream>
 
 int main() {
@@ -8,8 +8,8 @@ int main() {
 
     identity::GenesisService service;
 
-    assert(!service.has_genesis());
-    assert(service.state().lifecycle == identity::LifecycleStatus::PreGenesis);
+    ENTE_TEST_ASSERT(!service.has_genesis());
+    ENTE_TEST_ASSERT_EQ(service.state().lifecycle, identity::LifecycleStatus::PreGenesis);
 
     core::IdentityId id("ente-test-0");
     core::Digest const_digest = core::HashUtil::sha256("CONSTITUTION-v0.6.0");
@@ -21,11 +21,11 @@ int main() {
         .basal_state_digest = basal_digest
     });
 
-    assert(res1.has_value());
-    assert(service.has_genesis());
-    assert(service.state().lifecycle == identity::LifecycleStatus::LifeActive);
-    assert(service.state().id == id);
-    assert(service.verify(*res1));
+    ENTE_TEST_ASSERT(res1.has_value());
+    ENTE_TEST_ASSERT(service.has_genesis());
+    ENTE_TEST_ASSERT_EQ(service.state().lifecycle, identity::LifecycleStatus::LifeActive);
+    ENTE_TEST_ASSERT_EQ(service.state().id, id);
+    ENTE_TEST_ASSERT(service.verify(*res1));
 
     // FAIL-001: Double genesis on the same entity must be rejected
     auto res2 = service.create_genesis({
@@ -34,8 +34,8 @@ int main() {
         .basal_state_digest = basal_digest
     });
 
-    assert(!res2.has_value());
-    assert(res2.error() == core::EnteError::GenesisAlreadyExists);
+    ENTE_TEST_ASSERT(!res2.has_value());
+    ENTE_TEST_ASSERT_EQ(res2.error(), core::EnteError::GenesisAlreadyExists);
 
     std::cout << "[PASS] test_genesis: Single Genesis & Invariant Anchor C1/C9 verified.\n";
     return 0;
