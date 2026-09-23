@@ -48,9 +48,9 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 |---|---|---|---|
 | Arquitetura modular local | `VERIFIED` | Build e suíte na matriz GCC/Clang suportada | Não avalia integração certificada nem outros sistemas operacionais |
 | Distinção autorização/execução/efeito | `VERIFIED` | `test_action_transaction` | Confirmação depende da qualidade da telemetria fornecida |
-| Recuperação de ação interrompida | `VERIFIED` | Dispatch incompleto retorna como `RECOVERY_REQUIRED` e `SafeHold` | REC precisa ter sido persistido |
+| Recuperação de ação interrompida | `VERIFIED` | Crash POSIX após `PREPARED`, `DISPATCHED`, `ACKNOWLEDGED` e `EFFECT_UNCONFIRMED` retorna como `RECOVERY_REQUIRED`; `CONFIRMED` e `FAILED` permanecem terminais | REC precisa ter sido persistido; encerramento de processo não equivale a power loss físico |
 | Payload transacional canônico | `VERIFIED` | Round-trip com delimitadores e newline | Não é ainda um schema externo padronizado |
-| Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Journal opcional persiste cada fase antes do retorno; restart sem `save` explícito e falhas injetadas em fsync/rename/fsync do diretório | A garantia exige journal configurado; power loss físico e semântica do hardware/filesystem ainda não foram ensaiados |
+| Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Journal opcional persiste cada fase antes do retorno; falhas injetadas e encerramento abrupto de processo nos limites de fsync/rename/fsync do diretório | A garantia exige journal configurado; power loss físico e semântica do hardware/filesystem ainda não foram ensaiados |
 | REC autenticado | `OUT_OF_SCOPE` na versão atual | Nenhuma assinatura assimétrica por evento | Hash-chain fornece integridade, não autenticidade |
 | Atestação de hardware | `SIMULATED` | Fixture RATS local | Sem TPM/TEE real |
 | C11 — linhagem distribuída | `NOT_APPLICABLE` | Perfil mono-nó | Obrigatório apenas em `ENTE-DISTRIBUTED` |
@@ -67,8 +67,8 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 
 ## 5. Próximo gate
 
-O próximo gate para `ENTE-1 VERIFIED LOCAL CORE` é executar interrupção física
-entre todas as transições factuais e confirmação de efeito. A implementação
-agora cobre falhas determinísticas nas operações de fsync, rename e fsync do
-diretório, além de restart após dispatch persistido, mas não reivindica ainda
-cobertura de power loss real nem garantias além do hardware/filesystem ensaiado.
+O próximo gate para `ENTE-1 VERIFIED LOCAL CORE` é executar power loss físico
+em hardware e filesystem declarados. A implementação agora cobre falhas
+determinísticas e encerramento abrupto do processo nas operações de fsync,
+rename e fsync do diretório, além da matriz de restart das fases factuais, mas
+não reivindica durabilidade diante de perda real de energia.

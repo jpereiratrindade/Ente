@@ -46,7 +46,11 @@ inline void assert_eq_impl(
     const std::source_location location = std::source_location::current()
 ) {
     const bool equal = [&] {
-        if constexpr (std::is_integral_v<T> && std::is_integral_v<U>) {
+        if constexpr (
+            std::is_integral_v<T> && std::is_integral_v<U> &&
+            !std::is_same_v<std::remove_cv_t<T>, bool> &&
+            !std::is_same_v<std::remove_cv_t<U>, bool>
+        ) {
             return std::cmp_equal(actual, expected);
         } else {
             return actual == expected;
@@ -73,7 +77,11 @@ inline void assert_ne_impl(
     const std::source_location location = std::source_location::current()
 ) {
     const bool equal = [&] {
-        if constexpr (std::is_integral_v<T> && std::is_integral_v<U>) {
+        if constexpr (
+            std::is_integral_v<T> && std::is_integral_v<U> &&
+            !std::is_same_v<std::remove_cv_t<T>, bool> &&
+            !std::is_same_v<std::remove_cv_t<U>, bool>
+        ) {
             return std::cmp_equal(actual, expected);
         } else {
             return actual == expected;

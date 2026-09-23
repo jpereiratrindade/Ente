@@ -56,7 +56,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação Completa (19 Testes)
+### Executar a Suíte de Verificação Completa (20 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
 ```

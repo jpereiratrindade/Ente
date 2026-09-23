@@ -5,9 +5,9 @@
 
 ## Resumo Executivo
 
-Este documento estabelece o relatório formal de verificação empírica, estrutural e de integridade do **ENTE-0**, a primeira realização mínima candidata em C++26 da categoria ontológica **ENTE** (*Entidade com Núcleo Télico e Epistêmico*).
+Este documento estabelece o relatório formal de verificação empírica, estrutural e de integridade do **ENTE-0**, a primeira realização mínima candidata em C++23 da categoria ontológica **ENTE** (*Entidade com Núcleo Télico e Epistêmico*).
 
-O sistema foi submetido a uma suíte de 18 baterias de testes automatizados compreendendo:
+O sistema foi submetido a uma suíte de 20 baterias de testes automatizados compreendendo:
 1. **Verificação de Invariantes Constitutivos (C1..C14)**;
 2. **Benchmark Estocástico de Monte Carlo (5.000 ensaios)** contra 4 arquiteturas de referência (baselines);
 3. **Teste de Longevidade & Escalabilidade Constitutiva (10.000 acontecimentos contínuos / 20.002 eventos REC)**;
@@ -15,7 +15,7 @@ O sistema foi submetido a uma suíte de 18 baterias de testes automatizados comp
 5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat, Bomba de Infusão Crítica em UTI e Estação de Campo / Irrigação);
 6. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
 
-**Status de Verificação:** 19/19 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
+**Status de Verificação:** 20/20 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
 
 ---
 
@@ -81,7 +81,7 @@ A suíte executou 6 vetores de ataque destrutivo simulado:
 
 ## 5. Generalização de Domínio (`GenericAgentWithEnte<DomainT>`)
 
-Através do conceito C++26 `OperationalDomainConcept`, a governança do ENTE foi desacoplada de regras ad-hoc:
+Através do conceito C++23 `OperationalDomainConcept`, a governança do ENTE foi desacoplada de regras ad-hoc:
 
 ```cpp
 template <OperationalDomainConcept DomainT>
@@ -97,11 +97,11 @@ Demonstrado com conformidade integral em três domínios sintéticos de bancada 
 
 ## 6. Verificação de Memória com AddressSanitizer & LeakSanitizer
 
-Toda a suíte de 19 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
+Toda a suíte de 20 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
 * **Memory Leaks**: `0 bytes` vazados.
 * **Buffer Overflows**: `0 ocorrências`.
 * **Use-After-Free / Double-Free**: `0 ocorrências`.
-* **Resultado**: `19/19 Passed` sob instrumentação total no ambiente avaliado.
+* **Resultado**: `20/20 Passed` sob instrumentação total no ambiente avaliado.
 
 ---
 
@@ -113,7 +113,7 @@ O **ENTE-0** atinge maturidade experimental em sua realização mínima candidat
 DIMENSÃO             AVALIAÇÃO EXPERIMENTAL
 ───────────────────────────────────────────────────────────
 Conceito             Consolidado e Especificado (v0.6.0)
-Arquitetura          Realização em C++26 (Monoprocesso Local)
+Arquitetura          Realização em C++23 (Monoprocesso Local)
 Vertical Integrada   Ponta a ponta com Cold Recovery e RATS
 Caso Aplicado        Generalizado via Template (Veicular + UTI Sintéticos)
 Hardening            Resistente a 6 Vetores de Caos + ASan/LSan
@@ -121,4 +121,4 @@ Evidência Empírica   Simulação controlada de 5.000 transições
 Licença              GNU General Public License v3.0 (GPLv3)
 ```
 
-**Limites de Escopo:** O ENTE-0 é uma realização monoprocesso local em C++26. Consenso distribuído, singularidade de linhagem multi-nó e finalidade constitutiva em redes permanecem tópicos de pesquisa futura fora do escopo atual.
+**Limites de Escopo:** O ENTE-0 é uma realização monoprocesso local em C++23. Consenso distribuído, singularidade de linhagem multi-nó e finalidade constitutiva em redes permanecem tópicos de pesquisa futura fora do escopo atual.
