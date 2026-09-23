@@ -49,7 +49,7 @@ Para a análise formal dos limites de segurança, premissas de confiança e o qu
 - Compilador C++23 (`GCC 13/14+` ou `Clang 17/18+`)
 - `CMake 3.25+`
 - `Ninja`
-- `OpenSSL 3.x` (`libcrypto`, usado pelo REC V3 autenticado com Ed25519)
+- `OpenSSL 3.x` (`libcrypto`, usado pelo REC V4 autenticado e pelas delegações C14 com Ed25519)
 
 ### Build
 ```bash
@@ -77,7 +77,7 @@ cmake --install build --prefix /usr/local
 ./build/test_experiment_001
 ```
 
-### Executar a Bateria de Chaos & Injeção de Falhas (CHAOS-001..006)
+### Executar a Bateria de Chaos & Injeção de Falhas (CHAOS-001..007)
 ```bash
 ./build/test_chaos_invariants
 ```

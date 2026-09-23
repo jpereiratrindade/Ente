@@ -46,6 +46,7 @@ struct InvariantReport {
     InvariantId id;
     InvariantStatus status;
     std::string details;
+    std::vector<core::EventId> supporting_events{};
 };
 
 struct VerificationReport {
@@ -79,7 +80,7 @@ public:
     [[nodiscard]] VerificationReport verify_step(
         const identity::IdentityState& identity,
         const std::optional<identity::GenesisRecord>& genesis,
-        const history::HistoryEvent& latest_event,
+        const history::RecoverableHistory& history,
         const std::optional<epistemic::Interpretation>& current_interpretation,
         std::optional<std::reference_wrapper<const authority::AuthorityLineage>> authority_lineage = std::nullopt
     ) const noexcept;

@@ -2,8 +2,10 @@
 
 #include "ente/core/types.hpp"
 #include "ente/epistemic/status.hpp"
+#include "ente/epistemic/interpretation.hpp"
 #include "ente/assurance/runtime_assurance.hpp"
 #include "ente/rcc/actions.hpp"
+#include "ente/history/event.hpp"
 #include <string>
 #include <vector>
 #include <optional>
@@ -60,6 +62,7 @@ struct GenesisPayload {
     std::string material_anchor_id;
     std::string hardware_fingerprint;
     std::string substrate_type;
+    std::string root_authority_public_key;
 };
 
 struct ObservationPayload {
@@ -78,7 +81,14 @@ struct InterpretationPayload {
     std::vector<core::EvidenceId> supporting_evidence;
     std::vector<core::EvidenceId> challenging_evidence;
     std::optional<core::InterpretationId> supersedes;
+    epistemic::InterpretationStatus status{epistemic::InterpretationStatus::Current};
     core::LogicalTime created_at{0};
+};
+
+struct JudgmentPayload {
+    std::string compatibility;
+    std::string rationale;
+    core::Digest engine_digest;
 };
 
 struct ActionIntentPayload {
@@ -116,10 +126,27 @@ struct AuthorityTransitionPayload {
     std::string new_epoch_id;
     std::string previous_epoch_id;
     std::string new_authority_id;
+    std::string new_authority_public_key;
     core::LogicalTime transition_time{0};
     core::Digest predecessor_epoch_digest;
-    std::string signature;
+    std::string delegation_signature;
     std::string delegation_policy{"STRICT_LINEAGE"};
+};
+
+struct EpistemicActionPayload {
+    rcc::EpistemicAction action{rcc::EpistemicAction::Keep};
+    std::string reason;
+};
+
+struct AssuranceDecisionPayload {
+    assurance::SafetyDirective directive{assurance::SafetyDirective::SafeHold};
+    rcc::EpistemicAction epistemic_action{rcc::EpistemicAction::Keep};
+    std::string constitutive_status;
+};
+
+struct ConstitutiveEventPayload {
+    std::string code;
+    std::string detail;
 };
 
 [[nodiscard]] std::string serialize_genesis_payload(const GenesisPayload& payload);
@@ -147,5 +174,41 @@ struct PerturbationPayload {
     std::string reason;
     rcc::EpistemicAction recommended_action{rcc::EpistemicAction::Keep};
 };
+
+[[nodiscard]] std::string serialize_judgment_payload(const JudgmentPayload& payload);
+[[nodiscard]] std::expected<JudgmentPayload, core::EnteError> parse_judgment_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_perturbation_payload(const PerturbationPayload& payload);
+[[nodiscard]] std::expected<PerturbationPayload, core::EnteError> parse_perturbation_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_epistemic_action_payload(const EpistemicActionPayload& payload);
+[[nodiscard]] std::expected<EpistemicActionPayload, core::EnteError> parse_epistemic_action_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_assurance_decision_payload(const AssuranceDecisionPayload& payload);
+[[nodiscard]] std::expected<AssuranceDecisionPayload, core::EnteError> parse_assurance_decision_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_authority_transition_payload(const AuthorityTransitionPayload& payload);
+[[nodiscard]] std::expected<AuthorityTransitionPayload, core::EnteError> parse_authority_transition_payload(
+    std::string_view serialized
+) noexcept;
+
+[[nodiscard]] std::string serialize_constitutive_event_payload(const ConstitutiveEventPayload& payload);
+[[nodiscard]] std::expected<ConstitutiveEventPayload, core::EnteError> parse_constitutive_event_payload(
+    std::string_view serialized
+) noexcept;
+
+// Enforces the normative payload schema associated with each event kind.
+[[nodiscard]] bool payload_matches_event_kind(
+    EventKind kind,
+    std::string_view serialized
+) noexcept;
 
 } // namespace ente::history

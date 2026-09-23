@@ -31,7 +31,14 @@ void test_temporal_backward_attack() {
         50, // Backward time!
         {ente.history().head().id},
         {},
-        "OBSERVE:path_clear:true:OBSERVED",
+        ente::history::serialize_observation_payload({
+            .evidence_id = ente::core::EvidenceId("EV-BACKWARD"),
+            .source = "clock",
+            .subject = "path_clear",
+            .value = "true",
+            .status = ente::epistemic::EpistemicStatus::Observed,
+            .observed_at = 50
+        }),
         std::string(ente.authority_lineage().active_epoch().authorized_authority.view()),
         std::string(ente.authority_lineage().active_epoch().epoch_id.view())
     );
@@ -99,7 +106,16 @@ void test_provenance_evidence_stripping() {
         5,
         {}, // Stripped predecessors!
         {}, // Stripped evidence!
-        "INTERPRET:I9999:ghost_context:Unsubstantiated belief",
+        ente::history::serialize_interpretation_payload({
+            .id = ente::core::InterpretationId("I9999"),
+            .subject = "ghost_context",
+            .proposition = "Unsubstantiated belief",
+            .supporting_evidence = {},
+            .challenging_evidence = {},
+            .supersedes = std::nullopt,
+            .status = ente::epistemic::InterpretationStatus::Current,
+            .created_at = 5
+        }),
         std::string(ente.authority_lineage().active_epoch().authorized_authority.view()),
         std::string(ente.authority_lineage().active_epoch().epoch_id.view())
     );
@@ -162,7 +178,16 @@ void test_byzantine_fork_split() {
         2,
         {},
         {},
-        "FORGED_FORK_STATE",
+        ente::history::serialize_interpretation_payload({
+            .id = ente::core::InterpretationId("I-FORGED"),
+            .subject = "fork",
+            .proposition = "Forged fork state",
+            .supporting_evidence = {},
+            .challenging_evidence = {},
+            .supersedes = std::nullopt,
+            .status = ente::epistemic::InterpretationStatus::Current,
+            .created_at = 2
+        }),
         "auth-root-ente-chaos-fork",
         "epoch-0"
     );
@@ -197,6 +222,52 @@ void test_prng_seed_integrity() {
     std::cout << "    -> Event-scoped PRNG verified deterministic, reproducible, and cryptographically seeded.\n";
 }
 
+void test_forged_revision_sequence() {
+    std::cout << "[7] Testing CHAOS-007: Forged RCC Revision Sequence (C6/C7 Attack)...\n";
+    ente::realization::EnteRealization ente;
+    const ente::core::IdentityId id("ente-chaos-revision");
+    ENTE_TEST_ASSERT(ente.genesis(id).has_value());
+    ENTE_TEST_ASSERT(ente.step(1, {{
+        .id = ente::core::EvidenceId("EV-REVISION-BASE"),
+        .source = "sensor",
+        .subject = "machine_state",
+        .value = "nominal",
+        .observed_at = 1,
+        .status = ente::epistemic::EpistemicStatus::Observed
+    }}, "baseline").has_value());
+
+    const auto& epoch = ente.authority_lineage().active_epoch();
+    auto forged = ente.history_mut().create_event(
+        ente::history::EventKind::Perturbation,
+        id,
+        2,
+        {ente.history().head().id},
+        {ente::core::EvidenceId("EV-REVISION-BASE")},
+        ente::history::serialize_perturbation_payload({
+            .compatibility = "WEAKENED",
+            .reason = "forged without matching judgment",
+            .recommended_action = ente::rcc::EpistemicAction::SuspendAction
+        }),
+        std::string(epoch.authorized_authority.view()),
+        std::string(epoch.epoch_id.view())
+    );
+    ENTE_TEST_ASSERT(ente.history_mut().append(std::move(forged)).has_value());
+
+    const auto report = ente.verify();
+    ENTE_TEST_ASSERT(report.status == ente::constitution::ConstitutiveStatus::Violated);
+    bool c6_violated = false;
+    bool c7_violated = false;
+    for (const auto& invariant : report.invariant_reports) {
+        c6_violated |= invariant.id == ente::constitution::InvariantId::C6_RevisionCapability &&
+            invariant.status == ente::constitution::InvariantStatus::Violated;
+        c7_violated |= invariant.id == ente::constitution::InvariantId::C7_CoherenceEvaluation &&
+            invariant.status == ente::constitution::InvariantStatus::Violated;
+    }
+    ENTE_TEST_ASSERT(c6_violated);
+    ENTE_TEST_ASSERT(c7_violated);
+    std::cout << "    -> Unmatched perturbation rejected by executable C6/C7 audit.\n";
+}
+
 } // namespace
 
 int main() {
@@ -210,8 +281,8 @@ int main() {
     test_hash_chain_bit_flip();
     test_byzantine_fork_split();
     test_prng_seed_integrity();
+    test_forged_revision_sequence();
 
-    std::cout << "\n>>> ALL CHAOS & ADVERSARIAL ATTACK TESTS PASSED (6/6) <<<\n";
+    std::cout << "\n>>> ALL CHAOS & ADVERSARIAL ATTACK TESTS PASSED (7/7) <<<\n";
     return 0;
 }
-

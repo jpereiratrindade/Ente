@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ente/core/types.hpp"
+#include "ente/core/ed25519.hpp"
 #include <vector>
 #include <string>
 #include <optional>
@@ -34,8 +35,10 @@ struct AuthorityEpoch {
     AuthorityEpochId epoch_id;
     std::optional<AuthorityEpochId> predecessor_epoch;
     AuthorityId authorized_authority;
+    std::string authority_public_key;
     core::LogicalTime activation_time{0};
     core::Digest epoch_digest;
+    std::string delegation_signature;
     EpochStatus status{EpochStatus::Active};
 };
 
@@ -46,14 +49,23 @@ public:
     // Initialize root epoch at Genesis (C14)
     [[nodiscard]] std::expected<AuthorityEpoch, core::EnteError> initialize_root_epoch(
         const AuthorityId& root_auth,
+        std::string root_public_key,
         core::LogicalTime time = 0
     ) noexcept;
 
     // Transition to new authority epoch under legitimate lineage (C14)
     [[nodiscard]] std::expected<AuthorityEpoch, core::EnteError> transition_epoch(
         const AuthorityId& new_auth,
-        core::LogicalTime time
+        std::string new_public_key,
+        core::LogicalTime time,
+        std::string delegation_signature
     ) noexcept;
+
+    [[nodiscard]] std::string delegation_message(
+        const AuthorityId& new_auth,
+        std::string_view new_public_key,
+        core::LogicalTime time
+    ) const;
 
     [[nodiscard]] bool is_authority_authorized(const AuthorityId& auth, const AuthorityEpochId& epoch) const noexcept;
     [[nodiscard]] bool is_epoch_legitimate(const AuthorityId& auth, const AuthorityEpochId& epoch) const noexcept;

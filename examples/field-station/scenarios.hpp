@@ -2,6 +2,7 @@
 
 #include "field_domain.hpp"
 #include "ente/domain/generic_agent.hpp"
+#include "ente/judgment/fixture.hpp"
 #include <vector>
 #include <string>
 #include <format>
@@ -48,7 +49,14 @@ public:
             .hardware_fingerprint = "fp-rpi5-secure-boot-a921"
         };
 
-        ente::domain::GenericAgentWithEnte<FieldStationDomain> agent("field-001", FieldStationDomain{}, genesis_anchor);
+        ente::domain::GenericAgentWithEnte<FieldStationDomain> agent(
+            "field-001",
+            FieldStationDomain{},
+            genesis_anchor,
+            std::nullopt,
+            {},
+            std::nullopt,
+            std::make_unique<ente::judgment::FixtureJudgmentEngine>());
         auto& domain = agent.domain_mut();
         auto& ente = agent.ente_mut();
 
@@ -271,7 +279,7 @@ public:
             .status = ente::epistemic::InterpretationStatus::Current,
             .created_at = ente::core::LogicalTime(4)
         };
-        ente.adopt_interpretation(std::move(new_interp));
+        ENTE_TEST_ASSERT(ente.adopt_interpretation(std::move(new_interp)).has_value());
 
         std::vector<ente::epistemic::Observation> obs_resolved = {
             {
@@ -343,7 +351,14 @@ public:
         // Scope 1: Process A runs on hardware RP-A921
         std::string rec_filepath = "field_station_rec.log";
         {
-            ente::domain::GenericAgentWithEnte<FieldStationDomain> agent("field-001", FieldStationDomain{}, genesis_anchor);
+            ente::domain::GenericAgentWithEnte<FieldStationDomain> agent(
+                "field-001",
+                FieldStationDomain{},
+                genesis_anchor,
+                std::nullopt,
+                {},
+                std::nullopt,
+                std::make_unique<ente::judgment::FixtureJudgmentEngine>());
             auto& domain = agent.domain_mut();
             auto& ente = agent.ente_mut();
 
@@ -468,7 +483,9 @@ public:
             auto rec_res = ente::realization::EnteRealization::recover_from_file(rec_filepath);
             ENTE_TEST_ASSERT(rec_res.has_value());
             auto recovered_ente = std::move(*rec_res);
-            ENTE_TEST_ASSERT(recovered_ente.verify().is_valid());
+            ENTE_TEST_ASSERT(
+                recovered_ente.verify().status ==
+                ente::constitution::ConstitutiveStatus::Weakened);
 
             logs.push_back({
                 .tour_name = "Tour B · Ontological Continuity",

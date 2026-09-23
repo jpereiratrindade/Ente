@@ -78,7 +78,7 @@ public:
     ) const noexcept;
     [[nodiscard]] static std::expected<RecoverableHistory, core::EnteError> load_from_file(std::string_view filepath) noexcept;
 
-    // V3 authenticated snapshot. The trusted public key is supplied out of
+    // V4 authenticated canonical snapshot. The trusted public key is supplied out of
     // band; it is never accepted from the REC being verified.
     [[nodiscard]] std::expected<void, core::EnteError> save_authenticated_to_file(
         std::string_view filepath,

@@ -6,7 +6,7 @@
 #include "ente/history/rec.hpp"
 #include "ente/history/payloads.hpp"
 #include "ente/epistemic/interpretation.hpp"
-#include "ente/judgment/fixture.hpp"
+#include "ente/judgment/status_engine.hpp"
 #include "ente/rcc/reassessment.hpp"
 #include "ente/assurance/runtime_assurance.hpp"
 #include "ente/constitution/verifier.hpp"
@@ -21,8 +21,8 @@
 namespace ente::realization {
 
 struct StepContext {
-    std::string subject{"path_clear"};
-    std::string proposition{"Caminho desobstruído para avanço"};
+    std::string subject;
+    std::string proposition;
     std::string step_desc{"step"};
 };
 
@@ -63,17 +63,30 @@ struct ExecutionSummary {
 
 class EnteRealization {
 public:
-    explicit EnteRealization(std::unique_ptr<judgment::JudgmentEngine> engine = std::make_unique<judgment::FixtureJudgmentEngine>());
+    explicit EnteRealization(
+        std::unique_ptr<judgment::JudgmentEngine> engine =
+            std::make_unique<judgment::StatusJudgmentEngine>());
 
     [[nodiscard]] std::expected<identity::GenesisRecord, core::EnteError> genesis(
         const core::IdentityId& id,
-        std::optional<identity::MaterialAnchor> initial_anchor = std::nullopt
+        std::optional<identity::MaterialAnchor> initial_anchor = std::nullopt,
+        std::optional<core::Ed25519KeyPair> root_authority_signer = std::nullopt
     );
 
     // Hardware replacement under RIT (Ship of Theseus: S0 -> S1) preserving Identity
     [[nodiscard]] std::expected<identity::MaterialBinding, core::EnteError> migrate_hardware(
         identity::MaterialAnchor new_anchor,
         core::LogicalTime time
+    );
+
+    [[nodiscard]] std::expected<authority::AuthorityEpoch, core::EnteError> transition_authority(
+        authority::AuthorityId new_authority,
+        core::Ed25519KeyPair new_authority_signer,
+        core::LogicalTime time
+    );
+
+    [[nodiscard]] std::expected<void, core::EnteError> attach_authority_signer(
+        core::Ed25519KeyPair signer
     );
 
     // Cold Recovery from historical REC (restores identity, authority, material bindings, interpretation, and blocks 2nd Genesis)
@@ -163,7 +176,9 @@ public:
     [[nodiscard]] const authority::AuthorityLineage& authority_lineage() const noexcept { return authority_; }
     [[nodiscard]] const core::EventScopedPRNG& prng() const noexcept { return prng_; }
 
-    void adopt_interpretation(epistemic::Interpretation new_interp);
+    [[nodiscard]] std::expected<void, core::EnteError> adopt_interpretation(
+        epistemic::Interpretation new_interp
+    );
 
 private:
     [[nodiscard]] std::expected<ActionTransactionState, core::EnteError> append_action_phase(
@@ -178,6 +193,7 @@ private:
     identity::GenesisService genesis_service_;
     identity::MaterialBindingRegistry bindings_;
     authority::AuthorityLineage authority_;
+    std::optional<core::Ed25519KeyPair> authority_signer_;
     history::RecoverableHistory rec_;
     std::unordered_map<std::string, ActionTransactionState> action_transactions_;
     std::optional<std::string> journal_path_;

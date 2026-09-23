@@ -15,6 +15,7 @@ ReassessmentResult ContextReassessment::evaluate(
         .state_after = RCCState::Stable,
         .challenging_evidence = {},
         .reason = judgment.rationale,
+        .judgment_engine_digest = judgment.engine_digest,
         .evidence_request = std::nullopt
     };
 

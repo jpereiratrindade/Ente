@@ -61,10 +61,13 @@ public:
         std::optional<identity::MaterialAnchor> initial_anchor = std::nullopt,
         std::optional<std::string> journal_path = std::nullopt,
         history::PersistenceOptions journal_options = {},
-        std::optional<core::Ed25519KeyPair> journal_signer = std::nullopt
+        std::optional<core::Ed25519KeyPair> journal_signer = std::nullopt,
+        std::unique_ptr<judgment::JudgmentEngine> judgment_engine =
+            std::make_unique<judgment::StatusJudgmentEngine>()
     )
         : id_(agent_id)
         , domain_(std::move(domain))
+        , ente_(std::move(judgment_engine))
     {
         core::IdentityId ente_id(std::format("ente-{}", agent_id));
         auto gen_res = ente_.genesis(ente_id, std::move(initial_anchor));

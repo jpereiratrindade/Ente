@@ -20,6 +20,7 @@ enum class EventKind : uint8_t {
     EpistemicAction,
     Reinterpretation,
     Adaptation,
+    AuthorityTransition,
     ConstitutiveWarning,
     ConstitutiveRepair,
     CoherenceRestored
@@ -40,6 +41,7 @@ enum class EventKind : uint8_t {
         case EventKind::EpistemicAction: return "EPISTEMIC_ACTION";
         case EventKind::Reinterpretation: return "REINTERPRETATION";
         case EventKind::Adaptation: return "ADAPTATION";
+        case EventKind::AuthorityTransition: return "AUTHORITY_TRANSITION";
         case EventKind::ConstitutiveWarning: return "CONSTITUTIVE_WARNING";
         case EventKind::ConstitutiveRepair: return "CONSTITUTIVE_REPAIR";
         case EventKind::CoherenceRestored: return "COHERENCE_RESTORED";

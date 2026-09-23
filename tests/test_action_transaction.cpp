@@ -233,6 +233,30 @@ void test_canonical_payload_round_trip() {
     ENTE_TEST_ASSERT_EQ(decoded->effective_action, payload.effective_action);
     ENTE_TEST_ASSERT_EQ(decoded->pre_state, payload.pre_state);
     ENTE_TEST_ASSERT_EQ(decoded->detail, payload.detail);
+
+    const std::string path = "canonical_v4_round_trip.rec";
+    std::filesystem::remove(path);
+    ente::realization::EnteRealization process;
+    ENTE_TEST_ASSERT(process.genesis(
+        ente::core::IdentityId("ente-canonical-v4")).has_value());
+    auto prepared = process.prepare_action(
+        1,
+        payload.proposed_action,
+        payload.effective_action,
+        payload.safety_directive,
+        payload.pre_state
+    );
+    ENTE_TEST_ASSERT(prepared.has_value());
+    ENTE_TEST_ASSERT(process.history().save_to_file(path).has_value());
+    auto loaded = ente::history::RecoverableHistory::load_from_file(path);
+    ENTE_TEST_ASSERT(loaded.has_value());
+    auto persisted_payload = ente::history::parse_action_transaction(
+        loaded->head().payload_content);
+    ENTE_TEST_ASSERT(persisted_payload.has_value());
+    ENTE_TEST_ASSERT_EQ(persisted_payload->proposed_action, payload.proposed_action);
+    ENTE_TEST_ASSERT_EQ(persisted_payload->effective_action, payload.effective_action);
+    ENTE_TEST_ASSERT_EQ(persisted_payload->pre_state, payload.pre_state);
+    std::filesystem::remove(path);
 }
 
 void test_mutable_history_forces_full_audit_before_action() {
@@ -597,6 +621,84 @@ void test_dispatch_must_be_durable_before_domain_side_effect() {
     std::filesystem::remove(path + ".tmp");
 }
 
+void test_constitutive_transitions_are_atomic() {
+    const std::string authority_path = "authority_transition_atomic.rec";
+    const std::string revision_path = "interpretation_revision_atomic.rec";
+    std::filesystem::remove(authority_path);
+    std::filesystem::remove(revision_path);
+
+    JournalFaultPlan authority_plan{
+        .operation = ente::history::PersistenceOperation::ReplaceTarget
+    };
+    const ente::history::PersistenceOptions authority_options{
+        .before_operation = fail_journal_operation,
+        .context = &authority_plan
+    };
+    ente::realization::EnteRealization authority_process;
+    ENTE_TEST_ASSERT(authority_process.genesis(
+        ente::core::IdentityId("ente-authority-atomic")).has_value());
+    ENTE_TEST_ASSERT(authority_process.enable_durable_journal(
+        authority_path, authority_options).has_value());
+    const auto authority_head = authority_process.history().head_digest();
+    const auto authority_epoch = authority_process.authority_lineage().active_epoch().epoch_id;
+    auto successor = ente::core::Ed25519KeyPair::generate();
+    ENTE_TEST_ASSERT(successor.has_value());
+    authority_plan.armed = true;
+    auto authority_result = authority_process.transition_authority(
+        ente::authority::AuthorityId("auth-rejected-successor"),
+        std::move(*successor),
+        10
+    );
+    ENTE_TEST_ASSERT(!authority_result.has_value());
+    ENTE_TEST_ASSERT(authority_result.error() == ente::core::EnteError::PersistenceFailure);
+    ENTE_TEST_ASSERT(authority_process.history().head_digest() == authority_head);
+    ENTE_TEST_ASSERT(
+        authority_process.authority_lineage().active_epoch().epoch_id == authority_epoch);
+
+    JournalFaultPlan revision_plan{
+        .operation = ente::history::PersistenceOperation::ReplaceTarget
+    };
+    const ente::history::PersistenceOptions revision_options{
+        .before_operation = fail_journal_operation,
+        .context = &revision_plan
+    };
+    ente::realization::EnteRealization revision_process;
+    ENTE_TEST_ASSERT(revision_process.genesis(
+        ente::core::IdentityId("ente-revision-atomic")).has_value());
+    ENTE_TEST_ASSERT(revision_process.step(1, {{
+        .id = ente::core::EvidenceId("EV-REVISION-1"),
+        .source = "sensor",
+        .subject = "machine_state",
+        .value = "nominal",
+        .observed_at = 1,
+        .status = ente::epistemic::EpistemicStatus::Observed
+    }}, "establish interpretation").has_value());
+    ENTE_TEST_ASSERT(revision_process.enable_durable_journal(
+        revision_path, revision_options).has_value());
+    const auto revision_head = revision_process.history().head_digest();
+    const auto interpretation_before = revision_process.current_interpretation()->id;
+    revision_plan.armed = true;
+    auto revision_result = revision_process.adopt_interpretation({
+        .id = ente::core::InterpretationId("I-REVISION-REJECTED"),
+        .subject = "machine_state",
+        .proposition = "Revised machine state",
+        .supporting_evidence = {ente::core::EvidenceId("EV-REVISION-1")},
+        .challenging_evidence = {},
+        .supersedes = interpretation_before,
+        .status = ente::epistemic::InterpretationStatus::Current,
+        .created_at = 2
+    });
+    ENTE_TEST_ASSERT(!revision_result.has_value());
+    ENTE_TEST_ASSERT(revision_result.error() == ente::core::EnteError::PersistenceFailure);
+    ENTE_TEST_ASSERT(revision_process.history().head_digest() == revision_head);
+    ENTE_TEST_ASSERT(revision_process.current_interpretation()->id == interpretation_before);
+
+    std::filesystem::remove(authority_path);
+    std::filesystem::remove(authority_path + ".tmp");
+    std::filesystem::remove(revision_path);
+    std::filesystem::remove(revision_path + ".tmp");
+}
+
 } // namespace
 
 int main() {
@@ -609,6 +711,7 @@ int main() {
     test_effect_observation_rolls_back_as_one_unit();
     test_postrename_failure_is_explicitly_uncertain();
     test_dispatch_must_be_durable_before_domain_side_effect();
+    test_constitutive_transitions_are_atomic();
     std::cout << "[PASS] test_action_transaction: factual phases, durable commit point, side-effect boundary and recovery verified.\n";
     return 0;
 }

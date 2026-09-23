@@ -42,6 +42,7 @@ struct ReassessmentResult {
     RCCState state_after;
     std::vector<core::EvidenceId> challenging_evidence;
     std::string reason;
+    core::Digest judgment_engine_digest;
     std::optional<epistemic::EvidenceRequest> evidence_request;
 };
 

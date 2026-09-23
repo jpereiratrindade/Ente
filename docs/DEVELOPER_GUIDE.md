@@ -227,6 +227,12 @@ std::vector<ente::epistemic::Observation> collect_drone_telemetry(
 
 ## 5. Executando o Ciclo de Decisão Mediado
 
+O motor padrão (`StatusJudgmentEngine`) é deliberadamente neutro ao domínio: ele
+avalia apenas estados epistêmicos explícitos e conflitos diretos de valor. Regras
+como limites clínicos, tolerância entre sensores ou relevância contextual devem
+ser fornecidas por uma implementação de `JudgmentEngine` injetada no último
+argumento do construtor. `FixtureJudgmentEngine` é reservado a testes e exemplos.
+
 ```cpp
 #include <ente/domain/generic_agent.hpp>
 #include <iostream>

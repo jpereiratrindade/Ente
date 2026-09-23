@@ -2,6 +2,7 @@
 #include "ente/history/rec.hpp"
 #include "ente/realization/runner.hpp"
 #include "ente/testing/test_harness.hpp"
+#include "ente/testing/history_fixtures.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -38,7 +39,7 @@ RecoverableHistory make_history(bool include_observation) {
         0,
         {},
         {},
-        "GENESIS"
+        ente::testing::canonical_genesis_payload(identity)
     );
     ENTE_TEST_ASSERT(history.append(genesis).has_value());
 
@@ -49,7 +50,8 @@ RecoverableHistory make_history(bool include_observation) {
             1,
             {genesis.id},
             {ente::core::EvidenceId("EV-CRASH-1")},
-            "OBSERVED"
+            ente::testing::canonical_observation_payload(
+                ente::core::EvidenceId("EV-CRASH-1"), 1)
         );
         ENTE_TEST_ASSERT(history.append(std::move(observation)).has_value());
     }

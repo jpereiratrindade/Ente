@@ -61,7 +61,8 @@ EnteRealization::EnteRealization(std::unique_ptr<judgment::JudgmentEngine> engin
 
 std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis(
     const core::IdentityId& id,
-    std::optional<identity::MaterialAnchor> initial_anchor
+    std::optional<identity::MaterialAnchor> initial_anchor,
+    std::optional<core::Ed25519KeyPair> root_authority_signer
 ) {
     core::Digest const_digest = core::HashUtil::sha256("CONSTITUTION-v0.6.0");
     core::Digest basal_digest = core::HashUtil::sha256("BASAL-STATE-v0.1.0");
@@ -71,6 +72,13 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
     auto candidate_authority = authority_;
     auto candidate_rec = rec_;
     auto candidate_prng = prng_;
+    if (!root_authority_signer.has_value()) {
+        auto generated = core::Ed25519KeyPair::generate();
+        if (!generated.has_value()) {
+            return std::unexpected(generated.error());
+        }
+        root_authority_signer.emplace(std::move(*generated));
+    }
 
     auto gen_res = candidate_genesis.create_genesis({
         .identity = id,
@@ -95,7 +103,9 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
 
     // 2. Initialize root authority epoch bound to Genesis (C14)
     authority::AuthorityId root_auth(std::format("auth-root-{}", id.view()));
-    auto ep_res = candidate_authority.initialize_root_epoch(root_auth, 0);
+    const std::string root_authority_public_key = root_authority_signer->public_key_hex();
+    auto ep_res = candidate_authority.initialize_root_epoch(
+        root_auth, root_authority_public_key, 0);
     if (!ep_res.has_value()) {
         return std::unexpected(ep_res.error());
     }
@@ -115,7 +125,8 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
             .genesis_digest = gen_res->genesis_digest,
             .material_anchor_id = std::string(anchor.id.view()),
             .hardware_fingerprint = anchor.hardware_fingerprint,
-            .substrate_type = std::string(identity::to_string(anchor.type))
+            .substrate_type = std::string(identity::to_string(anchor.type)),
+            .root_authority_public_key = root_authority_public_key
         }),
         std::string(root_auth.view()),
         std::string(ep_res->epoch_id.view())
@@ -129,6 +140,7 @@ std::expected<identity::GenesisRecord, core::EnteError> EnteRealization::genesis
     genesis_service_ = std::move(candidate_genesis);
     bindings_ = std::move(candidate_bindings);
     authority_ = std::move(candidate_authority);
+    authority_signer_.emplace(std::move(*root_authority_signer));
     rec_ = std::move(candidate_rec);
     prng_ = std::move(candidate_prng);
     return *gen_res;
@@ -197,6 +209,87 @@ std::expected<identity::MaterialBinding, core::EnteError> EnteRealization::migra
     return *b_res;
 }
 
+std::expected<authority::AuthorityEpoch, core::EnteError> EnteRealization::transition_authority(
+    authority::AuthorityId new_authority,
+    core::Ed25519KeyPair new_authority_signer,
+    core::LogicalTime time
+) {
+    if (!genesis_service_.has_genesis() || authority_.empty()) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+    if (!authority_signer_.has_value() ||
+        authority_signer_->public_key_hex() != authority_.active_epoch().authority_public_key) {
+        return std::unexpected(core::EnteError::InvalidSignature);
+    }
+
+    auto candidate_authority = authority_;
+    auto candidate_rec = rec_;
+    const std::string new_public_key = new_authority_signer.public_key_hex();
+    const std::string delegation = candidate_authority.delegation_message(
+        new_authority, new_public_key, time);
+    if (delegation.empty()) return std::unexpected(core::EnteError::HistoryCorrupt);
+    auto signature = authority_signer_->sign_hex(delegation);
+    if (!signature.has_value()) return std::unexpected(signature.error());
+
+    const auto previous_epoch = candidate_authority.active_epoch();
+    auto transitioned = candidate_authority.transition_epoch(
+        new_authority, new_public_key, time, *signature);
+    if (!transitioned.has_value()) return std::unexpected(transitioned.error());
+
+    auto event = candidate_rec.create_event(
+        history::EventKind::AuthorityTransition,
+        identity().id,
+        time,
+        {candidate_rec.head().id},
+        {},
+        history::serialize_authority_transition_payload({
+            .new_epoch_id = std::string(transitioned->epoch_id.view()),
+            .previous_epoch_id = std::string(previous_epoch.epoch_id.view()),
+            .new_authority_id = std::string(transitioned->authorized_authority.view()),
+            .new_authority_public_key = transitioned->authority_public_key,
+            .transition_time = time,
+            .predecessor_epoch_digest = previous_epoch.epoch_digest,
+            .delegation_signature = transitioned->delegation_signature,
+            .delegation_policy = "STRICT_LINEAGE"
+        }),
+        std::string(transitioned->authorized_authority.view()),
+        std::string(transitioned->epoch_id.view())
+    );
+    auto appended = candidate_rec.append(std::move(event));
+    if (!appended.has_value()) return std::unexpected(appended.error());
+
+    const auto commit_candidate = [&]() noexcept {
+        authority_ = std::move(candidate_authority);
+        rec_ = std::move(candidate_rec);
+        authority_signer_.emplace(std::move(new_authority_signer));
+    };
+    if (journal_path_.has_value()) {
+        auto persisted = journal_signer_.has_value()
+            ? candidate_rec.save_authenticated_to_file(
+                *journal_path_, *journal_signer_, journal_options_)
+            : candidate_rec.save_to_file(*journal_path_, journal_options_);
+        if (!persisted.has_value()) {
+            if (persisted.error() == core::EnteError::PersistenceCommitUncertain) {
+                commit_candidate();
+            }
+            return std::unexpected(persisted.error());
+        }
+    }
+    commit_candidate();
+    return authority_.active_epoch();
+}
+
+std::expected<void, core::EnteError> EnteRealization::attach_authority_signer(
+    core::Ed25519KeyPair signer
+) {
+    if (authority_.empty()) return std::unexpected(core::EnteError::GenesisNotEstablished);
+    if (signer.public_key_hex() != authority_.active_epoch().authority_public_key) {
+        return std::unexpected(core::EnteError::InvalidSignature);
+    }
+    authority_signer_.emplace(std::move(signer));
+    return {};
+}
+
 std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_history(history::RecoverableHistory history) {
     if (history.empty()) {
         return std::unexpected(core::EnteError::GenesisNotEstablished);
@@ -253,7 +346,11 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
 
     // 4. Reconstruct Authority Lineage root epoch
     authority::AuthorityId auth_id(gen_ev.authority_id);
-    auto auth_res = instance.authority_.initialize_root_epoch(auth_id, gen_ev.logical_time);
+    auto auth_res = instance.authority_.initialize_root_epoch(
+        auth_id,
+        genesis_payload->root_authority_public_key,
+        gen_ev.logical_time
+    );
     if (!auth_res.has_value()) {
         return std::unexpected(auth_res.error());
     }
@@ -287,6 +384,27 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
             }
         }
 
+        if (ev.kind == history::EventKind::AuthorityTransition) {
+            auto payload = history::parse_authority_transition_payload(ev.payload_content);
+            if (!payload.has_value() || payload->transition_time != ev.logical_time ||
+                payload->previous_epoch_id != instance.authority_.active_epoch().epoch_id.view() ||
+                payload->predecessor_epoch_digest != instance.authority_.active_epoch().epoch_digest) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
+            auto transitioned = instance.authority_.transition_epoch(
+                authority::AuthorityId(payload->new_authority_id),
+                payload->new_authority_public_key,
+                payload->transition_time,
+                payload->delegation_signature
+            );
+            if (!transitioned.has_value() ||
+                transitioned->epoch_id.view() != payload->new_epoch_id ||
+                ev.authority_id != transitioned->authorized_authority.view() ||
+                ev.authority_epoch != transitioned->epoch_id.view()) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
+        }
+
         if (ev.kind == history::EventKind::Interpretation ||
             ev.kind == history::EventKind::Reinterpretation ||
             ev.kind == history::EventKind::CoherenceRestored) {
@@ -300,35 +418,61 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
                 .id = payload->id,
                 .subject = payload->subject,
                 .proposition = payload->proposition,
-                .supporting_evidence = ev.evidence_refs,
-                .challenging_evidence = {},
+                .supporting_evidence = payload->supporting_evidence,
+                .challenging_evidence = payload->challenging_evidence,
                 .supersedes = payload->supersedes,
-                .status = epistemic::InterpretationStatus::Current,
+                .status = payload->status,
                 .created_at = ev.logical_time
             };
         }
 
-        if (ev.payload_content.starts_with("RCC:PERTURBATION:")) {
+        if (ev.kind == history::EventKind::Perturbation) {
+            auto payload = history::parse_perturbation_payload(ev.payload_content);
+            if (!payload.has_value()) return std::unexpected(payload.error());
             if (instance.current_interpretation_.has_value()) {
-                if (ev.payload_content.find("Challenged") != std::string::npos ||
-                    ev.payload_content.find("Incompatible") != std::string::npos) {
+                if (payload->compatibility == "WEAKENED") {
                     instance.current_interpretation_->status = epistemic::InterpretationStatus::Weakened;
+                } else if (payload->compatibility == "CONTRADICTORY") {
+                    instance.current_interpretation_->status = epistemic::InterpretationStatus::Contradicted;
+                } else if (payload->compatibility == "UNKNOWN" ||
+                           payload->compatibility == "INSUFFICIENT_EVIDENCE") {
+                    instance.current_interpretation_->status = epistemic::InterpretationStatus::Unknown;
                 }
             }
             instance.domain_.suspend_action();
         }
 
-        if (ev.payload_content.find("SAFE_HOLD") != std::string::npos ||
-            ev.payload_content.find("EMERGENCY_STOP") != std::string::npos ||
-            ev.payload_content.find("SUSPEND_ACTION") != std::string::npos) {
-            instance.domain_.suspend_action();
-        } else if (ev.payload_content.find("ALLOW_ACTION") != std::string::npos ||
-                   ev.payload_content.find("RESUME_ACTION") != std::string::npos ||
-                   ev.payload_content.find("STATUS=SUCCESS") != std::string::npos ||
-                   ev.kind == history::EventKind::CoherenceRestored) {
-            instance.domain_.resume_action(SyntheticDomain::Action::MoveForward);
+        if (ev.kind == history::EventKind::Judgment) {
+            auto judgment_payload = history::parse_judgment_payload(ev.payload_content);
+            if (!judgment_payload.has_value()) {
+                return std::unexpected(judgment_payload.error());
+            }
             if (instance.current_interpretation_.has_value()) {
-                instance.current_interpretation_->status = epistemic::InterpretationStatus::Current;
+                if (judgment_payload->compatibility == "SUPPORTED") {
+                    instance.current_interpretation_->status = epistemic::InterpretationStatus::Supported;
+                } else if (judgment_payload->compatibility == "WEAKENED") {
+                    instance.current_interpretation_->status = epistemic::InterpretationStatus::Weakened;
+                } else if (judgment_payload->compatibility == "CONTRADICTORY") {
+                    instance.current_interpretation_->status = epistemic::InterpretationStatus::Contradicted;
+                } else if (judgment_payload->compatibility == "UNKNOWN" ||
+                           judgment_payload->compatibility == "INSUFFICIENT_EVIDENCE") {
+                    instance.current_interpretation_->status = epistemic::InterpretationStatus::Unknown;
+                } else {
+                    return std::unexpected(core::EnteError::HistoryCorrupt);
+                }
+            }
+        }
+
+        if (ev.kind == history::EventKind::ActionAuthorized) {
+            auto assurance = history::parse_assurance_decision_payload(ev.payload_content);
+            if (assurance.has_value()) {
+                if (assurance->directive == assurance::SafetyDirective::AllowAction) {
+                    instance.domain_.resume_action(SyntheticDomain::Action::MoveForward);
+                } else {
+                    instance.domain_.suspend_action();
+                }
+            } else if (!history::parse_action_transaction(ev.payload_content).has_value()) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
             }
         }
     }
@@ -450,15 +594,83 @@ std::expected<void, core::EnteError> EnteRealization::enable_authenticated_durab
     return {};
 }
 
-void EnteRealization::adopt_interpretation(epistemic::Interpretation new_interp) {
-    current_interpretation_ = std::move(new_interp);
-
-    // Runtime Assurance & Action Support Trace
-    if (current_interpretation_->subject != "path_clear" ||
-        current_interpretation_->status == epistemic::InterpretationStatus::Weakened ||
-        current_interpretation_->status == epistemic::InterpretationStatus::Contradicted) {
-        domain_.suspend_action();
+std::expected<void, core::EnteError> EnteRealization::adopt_interpretation(
+    epistemic::Interpretation new_interp
+) {
+    if (!genesis_service_.has_genesis()) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
     }
+    if (new_interp.id.empty() || new_interp.subject.empty() ||
+        new_interp.proposition.empty() || new_interp.supporting_evidence.empty() ||
+        new_interp.created_at < rec_.head().logical_time) {
+        return std::unexpected(core::EnteError::InsufficientEvidence);
+    }
+    if (current_interpretation_.has_value() &&
+        (!new_interp.supersedes.has_value() ||
+         *new_interp.supersedes != current_interpretation_->id)) {
+        return std::unexpected(core::EnteError::UntraceableTransition);
+    }
+
+    std::vector<core::EvidenceId> evidence_refs = new_interp.supporting_evidence;
+    evidence_refs.insert(
+        evidence_refs.end(),
+        new_interp.challenging_evidence.begin(),
+        new_interp.challenging_evidence.end()
+    );
+    for (const auto& evidence : evidence_refs) {
+        if (!rec_.contains_evidence(evidence)) {
+            return std::unexpected(core::EnteError::InsufficientEvidence);
+        }
+    }
+
+    auto candidate_rec = rec_;
+    const auto& epoch = authority_.active_epoch();
+    const auto event_kind = current_interpretation_.has_value()
+        ? history::EventKind::Reinterpretation
+        : history::EventKind::Interpretation;
+    auto event = candidate_rec.create_event(
+        event_kind,
+        identity().id,
+        new_interp.created_at,
+        {candidate_rec.head().id},
+        evidence_refs,
+        history::serialize_interpretation_payload({
+            .id = new_interp.id,
+            .subject = new_interp.subject,
+            .proposition = new_interp.proposition,
+            .supporting_evidence = new_interp.supporting_evidence,
+            .challenging_evidence = new_interp.challenging_evidence,
+            .supersedes = new_interp.supersedes,
+            .status = new_interp.status,
+            .created_at = new_interp.created_at
+        }),
+        std::string(epoch.authorized_authority.view()),
+        std::string(epoch.epoch_id.view())
+    );
+    auto appended = candidate_rec.append(std::move(event));
+    if (!appended.has_value()) return std::unexpected(appended.error());
+
+    const auto commit_candidate = [&]() noexcept {
+        rec_ = std::move(candidate_rec);
+        current_interpretation_ = std::move(new_interp);
+        // A newly adopted interpretation is not operationally authorized until
+        // the next factual judgment and assurance decision validate it.
+        domain_.suspend_action();
+    };
+    if (journal_path_.has_value()) {
+        auto persisted = journal_signer_.has_value()
+            ? candidate_rec.save_authenticated_to_file(
+                *journal_path_, *journal_signer_, journal_options_)
+            : candidate_rec.save_to_file(*journal_path_, journal_options_);
+        if (!persisted.has_value()) {
+            if (persisted.error() == core::EnteError::PersistenceCommitUncertain) {
+                commit_candidate();
+            }
+            return std::unexpected(persisted.error());
+        }
+    }
+    commit_candidate();
+    return {};
 }
 
 std::expected<DecisionTrace, core::EnteError> EnteRealization::step(
@@ -466,9 +678,19 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step(
     const std::vector<epistemic::Observation>& observations,
     std::string_view step_desc
 ) {
+    if (!current_interpretation_.has_value() && observations.empty()) {
+        return std::unexpected(core::EnteError::InsufficientEvidence);
+    }
+    const std::string initial_subject = observations.empty()
+        ? std::string{}
+        : observations.front().subject;
     StepContext ctx{
-        .subject = current_interpretation_.has_value() ? current_interpretation_->subject : "path_clear",
-        .proposition = current_interpretation_.has_value() ? current_interpretation_->proposition : "Caminho desobstruído para avanço",
+        .subject = current_interpretation_.has_value()
+            ? current_interpretation_->subject
+            : initial_subject,
+        .proposition = current_interpretation_.has_value()
+            ? current_interpretation_->proposition
+            : std::format("Initial interpretation for {}", initial_subject),
         .step_desc = std::string(step_desc)
     };
     return step_with_context(time, observations, ctx);
@@ -581,6 +803,7 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
                 .supporting_evidence = current_interpretation_->supporting_evidence,
                 .challenging_evidence = current_interpretation_->challenging_evidence,
                 .supersedes = current_interpretation_->supersedes,
+                .status = current_interpretation_->status,
                 .created_at = current_interpretation_->created_at
             }),
             current_auth_id,
@@ -596,6 +819,26 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
     // 3. Continuous Context Reassessment (RCC)
     auto reassess = rcc_.evaluate(*current_interpretation_, observations, *judgment_);
 
+    auto judgment_event = rec_.create_event(
+        history::EventKind::Judgment,
+        id,
+        time,
+        {rec_.head().id},
+        obs_evidence_ids,
+        history::serialize_judgment_payload({
+            .compatibility = std::string(judgment::to_string(reassess.compatibility)),
+            .rationale = reassess.reason,
+            .engine_digest = reassess.judgment_engine_digest
+        }),
+        current_auth_id,
+        current_epoch_id
+    );
+    auto judgment_appended = rec_.append(std::move(judgment_event));
+    if (!judgment_appended.has_value()) {
+        rollback();
+        return std::unexpected(judgment_appended.error());
+    }
+
     if (!rec_.verify_tail()) {
         rollback();
         constitutive_status_ = constitution::ConstitutiveStatus::Violated;
@@ -607,7 +850,7 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
     auto verification = verifier_.verify_step(
         genesis_service_.state(),
         genesis_service_.record(),
-        rec_.head(),
+        rec_,
         current_interpretation_,
         std::cref(authority_)
     );
@@ -630,7 +873,11 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             time,
             {},
             obs_evidence_ids,
-            std::format("RCC:PERTURBATION:{}:{}", judgment::to_string(reassess.compatibility), reassess.reason),
+            history::serialize_perturbation_payload({
+                .compatibility = std::string(judgment::to_string(reassess.compatibility)),
+                .reason = reassess.reason,
+                .recommended_action = reassess.epistemic_action
+            }),
             current_auth_id,
             current_epoch_id
         );
@@ -647,7 +894,10 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             time,
             {rec_.head().id},
             obs_evidence_ids,
-            reassess.epistemic_action == rcc::EpistemicAction::SuspendAction ? "ACTION:SUSPEND_ACTION" : "ACTION:SEEK_EVIDENCE",
+            history::serialize_epistemic_action_payload({
+                .action = reassess.epistemic_action,
+                .reason = reassess.reason
+            }),
             current_auth_id,
             current_epoch_id
         );
@@ -681,7 +931,11 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
         time,
         {rec_.head().id},
         obs_evidence_ids,
-        std::format("ACTION_AUTHORIZED:DIRECTIVE={}:EPISTEMIC_ACTION={}", assurance::to_string(safety_directive), rcc::to_string(reassess.epistemic_action)),
+        history::serialize_assurance_decision_payload({
+            .directive = safety_directive,
+            .epistemic_action = reassess.epistemic_action,
+            .constitutive_status = std::string(constitution::to_string(verification.status))
+        }),
         current_auth_id,
         current_epoch_id
     );
@@ -988,11 +1242,22 @@ std::optional<ActionTransactionState> EnteRealization::action_transaction(
 std::expected<void, core::EnteError> EnteRealization::rebuild_action_transactions_from_history() {
     action_transactions_.clear();
     for (const auto& event : rec_.events()) {
-        if (!event.payload_content.starts_with("ENTE_ACTION_TX_V1")) continue;
-
         auto parsed = history::parse_action_transaction(event.payload_content);
         if (!parsed.has_value()) {
-            return std::unexpected(parsed.error());
+            const bool legitimate_non_transaction =
+                (event.kind == history::EventKind::ActionAuthorized &&
+                 history::parse_assurance_decision_payload(event.payload_content).has_value()) ||
+                (event.kind == history::EventKind::ConstitutiveWarning &&
+                 history::parse_constitutive_event_payload(event.payload_content).has_value());
+            if (legitimate_non_transaction) continue;
+
+            const bool transaction_kind =
+                event.kind == history::EventKind::ActionIntended ||
+                event.kind == history::EventKind::ActionExecution ||
+                event.kind == history::EventKind::ActionExecutionAck ||
+                event.kind == history::EventKind::EffectObservation;
+            if (transaction_kind) return std::unexpected(parsed.error());
+            continue;
         }
 
         auto it = action_transactions_.find(parsed->action_id.value);

@@ -11,10 +11,11 @@ O sistema foi submetido a uma suíte de 21 baterias de testes automatizados comp
 1. **Verificação de Invariantes Constitutivos (C1..C14)**;
 2. **Benchmark Estocástico de Monte Carlo (5.000 ensaios)** contra 4 arquiteturas de referência (baselines);
 3. **Teste de Longevidade & Escalabilidade Constitutiva (10.000 acontecimentos contínuos / 20.002 eventos REC)**;
-4. **Bateria Adversarial de Injeção de Caos (CHAOS-001..006)**;
+4. **Bateria Adversarial de Injeção de Caos (CHAOS-001..007)**;
 5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat, Bomba de Infusão Crítica em UTI e Estação de Campo / Irrigação);
-6. **Autenticação do REC V3 com Ed25519**, vetor RFC 8032 e rejeição de hash-chain adversarial recalculada;
-7. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
+6. **Autenticação do REC V4 canônico com Ed25519**, vetor RFC 8032 e rejeição de hash-chain adversarial recalculada;
+7. **Delegação autenticada C14**, com assinatura da autoridade predecessora, janela temporal, replay adversarial e reconstrução pós-restart;
+8. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
 
 **Status de Verificação:** 21/21 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
 

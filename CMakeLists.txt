@@ -35,6 +35,7 @@ add_library(ente_core
     src/history/payloads.cpp
     src/epistemic/interpretation.cpp
     src/judgment/fixture.cpp
+    src/judgment/status_engine.cpp
     src/rcc/reassessment.cpp
     src/assurance/runtime_assurance.cpp
     src/attestation/rats.cpp

@@ -100,10 +100,14 @@ void run_sequential_benchmark() {
     bool found_rcc_perturbation = false;
     bool found_safe_hold_directive = false;
     for (const auto& ev : ente_agent.ente().history().events()) {
-        if (ev.payload_content.find("RCC:PERTURBATION") != std::string::npos) {
+        if (ev.kind == ente::history::EventKind::Perturbation &&
+            ente::history::parse_perturbation_payload(ev.payload_content).has_value()) {
             found_rcc_perturbation = true;
         }
-        if (ev.payload_content.find("SAFE_HOLD") != std::string::npos) {
+        const auto assurance = ente::history::parse_assurance_decision_payload(
+            ev.payload_content);
+        if (assurance.has_value() &&
+            assurance->directive == ente::assurance::SafetyDirective::SafeHold) {
             found_safe_hold_directive = true;
         }
     }
@@ -242,7 +246,7 @@ void run_cold_recovery_post_resolution_test() {
         // confirmed physical state.
         ENTE_TEST_ASSERT(recovered_ente.domain().is_action_suspended());
         ENTE_TEST_ASSERT(recovered_ente.current_interpretation().has_value());
-        ENTE_TEST_ASSERT(recovered_ente.current_interpretation()->status == ente::epistemic::InterpretationStatus::Current);
+        ENTE_TEST_ASSERT(recovered_ente.current_interpretation()->status == ente::epistemic::InterpretationStatus::Supported);
         ENTE_TEST_ASSERT(recovered_ente.history().verify_integrity());
         ENTE_TEST_ASSERT(recovered_ente.verify().is_valid());
     }

@@ -49,9 +49,12 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 | Arquitetura modular local | `VERIFIED` | Build e suíte na matriz GCC/Clang suportada | Não avalia integração certificada nem outros sistemas operacionais |
 | Distinção autorização/execução/efeito | `VERIFIED` | `test_action_transaction` | Confirmação depende da qualidade da telemetria fornecida |
 | Recuperação de ação interrompida | `VERIFIED` | Crash POSIX após `PREPARED`, `DISPATCHED`, `ACKNOWLEDGED` e `EFFECT_UNCONFIRMED` retorna como `RECOVERY_REQUIRED`; `CONFIRMED` e `FAILED` permanecem terminais | REC precisa ter sido persistido; encerramento de processo não equivale a power loss físico |
-| Payload transacional canônico | `VERIFIED` | Round-trip com delimitadores e newline | Não é ainda um schema externo padronizado |
+| Biografia canônica tipada | `VERIFIED` | REC V4 usa envelope e payloads length-prefixed; o mesmo material canônico alimenta hash, persistência, assinatura e recovery; tipos incompatíveis com `EventKind` são rejeitados | Não é ainda um schema externo padronizado |
+| Atomicidade constitutiva | `VERIFIED` | Gênese, migração material, decisão, revisão epistêmica e transição de autoridade usam candidato isolado e testes de falha pré/pós commit | `PersistenceCommitUncertain` exige reconciliação por recovery |
+| Constituição factual local | `VERIFIED` | C1–C10, C12 e C14 verificam evidências e sequências registradas; ataques C4, C6/C7, C10/C12 e C14 são falsificados pela suíte | C11/C13 são `NOT_APPLICABLE` no perfil mono-nó |
+| Autoridade autenticada C14 | `VERIFIED` | Delegação Ed25519 pela chave da época anterior, chave pública por época, janela temporal estrita, rejeição de replay e recovery da linhagem | Perfil atual usa delegação simples; quorum/multisig e revogação externa não são reivindicados |
 | Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Commit point mantém REC/índice inalterados em falha anterior ao `rename`; dispatch não executa o domínio sem registro durável; falha posterior ao `rename` retorna `PersistenceCommitUncertain` | A garantia exige journal configurado; power loss físico e semântica do hardware/filesystem ainda não foram ensaiados |
-| REC autenticado | `VERIFIED` no modo autenticado | Snapshot V3 autenticado por Ed25519 e validado por chave pública externa; vetor RFC 8032; cadeia recalculada por atacante é rejeitada; recovery mantém assinatura | O modo V3 não autenticado permanece hash-only e não satisfaz este claim; comprometimento da chave privada permanece fora da garantia |
+| REC autenticado | `VERIFIED` no modo autenticado | Snapshot V4 canônico autenticado por Ed25519 e validado por chave pública externa; vetor RFC 8032; cadeia recalculada por atacante é rejeitada; recovery mantém assinatura | O modo V4 não autenticado permanece hash-only e não satisfaz este claim; comprometimento da chave privada permanece fora da garantia |
 | Atestação de hardware | `SIMULATED` | Fixture RATS local | Sem TPM/TEE real |
 | C11 — linhagem distribuída | `NOT_APPLICABLE` | Perfil mono-nó | Obrigatório apenas em `ENTE-DISTRIBUTED` |
 | C13 — finalidade distribuída | `NOT_APPLICABLE` | Perfil mono-nó | Obrigatório apenas em `ENTE-DISTRIBUTED` |
@@ -68,8 +71,22 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 
 ## 5. Próximo gate
 
-O próximo gate para `ENTE-1 VERIFIED LOCAL CORE` é executar power loss físico
-em hardware e filesystem declarados. A implementação agora cobre falhas
-determinísticas e encerramento abrupto do processo nas operações de fsync,
-rename e fsync do diretório, além da matriz de restart das fases factuais, mas
-não reivindica durabilidade diante de perda real de energia.
+| Gate | Estado |
+|---|---|
+| G0 — Constitutive Atomicity | `VERIFIED` |
+| G1 — Genesis-Bound Identity | `VERIFIED` |
+| G2 — Canonical Biography | `VERIFIED` |
+| G3 — Evidence-Based Constitution | `VERIFIED` para invariantes aplicáveis ao perfil local |
+| G4 — Authenticated Authority | `VERIFIED` para delegação Ed25519 estrita de uma autoridade predecessora |
+| G5 — Supported Toolchain Green | `LOCAL PASS`; exige confirmação do workflow remoto após publicação |
+| G6 — Declared-Substrate Durability | `PENDING PHYSICAL TEST` |
+
+O gate externo restante para o marco `ENTE-1 VERIFIED LOCAL CORE` é executar e
+registrar perda física de energia no hardware, kernel e filesystem declarados.
+A implementação cobre fault injection determinística, `fork/_exit`, `fsync`,
+`rename`, `fsync(dir)` e recovery das fases factuais; isso não é apresentado
+como substituto de ensaio elétrico no substrato real.
+
+O perfil local atual assume biografia experimental limitada. Journal append-only,
+checkpoints e anti-rollback externo pertencem respectivamente ao perfil local de
+longa duração e a um modelo de ameaça com host privilegiado.

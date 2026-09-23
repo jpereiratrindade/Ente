@@ -1,5 +1,6 @@
 #include "ente/history/rec.hpp"
 #include "ente/core/hash.hpp"
+#include "ente/history/payloads.hpp"
 #include <format>
 #include <numeric>
 #include <fstream>
@@ -54,27 +55,38 @@ bool valid_event_shape(const HistoryEvent& event) noexcept {
     return true;
 }
 
+std::string canonical_event_material(
+    const HistoryEvent& event,
+    bool include_event_digest
+) {
+    std::string output{"ENTE_CANONICAL_EVENT_V1"};
+    append_canonical_field(output, event.id.view());
+    append_canonical_field(output, to_string(event.kind));
+    append_canonical_field(output, event.identity.view());
+    append_canonical_field(output, std::to_string(event.logical_time));
+    append_canonical_field(output, event.previous_event_digest.value);
+    append_canonical_field(output, std::to_string(event.causal_predecessors.size()));
+    for (const auto& predecessor : event.causal_predecessors) {
+        append_canonical_field(output, predecessor.view());
+    }
+    append_canonical_field(output, std::to_string(event.evidence_refs.size()));
+    for (const auto& evidence : event.evidence_refs) {
+        append_canonical_field(output, evidence.view());
+    }
+    append_canonical_field(output, event.authority_id);
+    append_canonical_field(output, event.authority_epoch);
+    append_canonical_field(output, event.payload_content);
+    append_canonical_field(output, event.payload_digest.value);
+    if (include_event_digest) {
+        append_canonical_field(output, event.event_digest.value);
+    }
+    return output;
+}
+
 } // namespace
 
 std::string RecoverableHistory::compute_event_hash_string(const HistoryEvent& ev) noexcept {
-    std::string output{"ENTE_EVENT_HASH_V2"};
-    append_canonical_field(output, ev.id.view());
-    append_canonical_field(output, to_string(ev.kind));
-    append_canonical_field(output, ev.identity.view());
-    append_canonical_field(output, std::to_string(ev.logical_time));
-    append_canonical_field(output, ev.previous_event_digest.value);
-    append_canonical_field(output, std::to_string(ev.causal_predecessors.size()));
-    for (const auto& c : ev.causal_predecessors) {
-        append_canonical_field(output, c.view());
-    }
-    append_canonical_field(output, std::to_string(ev.evidence_refs.size()));
-    for (const auto& e : ev.evidence_refs) {
-        append_canonical_field(output, e.view());
-    }
-    append_canonical_field(output, ev.authority_id);
-    append_canonical_field(output, ev.authority_epoch);
-    append_canonical_field(output, ev.payload_digest.value);
-    return output;
+    return canonical_event_material(ev, false);
 }
 
 core::Digest RecoverableHistory::head_digest() const noexcept {
@@ -165,6 +177,9 @@ std::expected<void, core::EnteError> RecoverableHistory::append(HistoryEvent eve
     if (!valid_event_shape(event)) {
         return std::unexpected(core::EnteError::HistoryCorrupt);
     }
+    if (!payload_matches_event_kind(event.kind, event.payload_content)) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
 
     // 0. Verify uniqueness of EventId (C10/C12 invariant)
     if (contains_event(event.id)) {
@@ -253,6 +268,7 @@ bool RecoverableHistory::verify_integrity() const noexcept {
         const auto& ev = events_[i];
 
         if (!valid_event_shape(ev) || ev.identity != genesis_identity) return false;
+        if (!payload_matches_event_kind(ev.kind, ev.payload_content)) return false;
         if (i == 0) {
             if (ev.kind != EventKind::Genesis || ev.logical_time != 0 ||
                 !ev.causal_predecessors.empty() || !ev.evidence_refs.empty()) return false;
@@ -317,6 +333,7 @@ bool RecoverableHistory::verify_tail() const noexcept {
 
     const auto& tail = events_.back();
     if (!valid_event_shape(tail) || tail.identity != events_.front().identity) return false;
+    if (!payload_matches_event_kind(tail.kind, tail.payload_content)) return false;
     if (events_.size() == 1) {
         if (tail.kind != EventKind::Genesis || tail.logical_time != 0 ||
             !tail.causal_predecessors.empty() || !tail.evidence_refs.empty()) return false;
@@ -359,41 +376,38 @@ void RecoverableHistory::tamper_event_payload_for_testing(size_t index, std::str
 
 namespace {
 
-std::string escape_payload(std::string_view raw) {
-    std::string out;
-    out.reserve(raw.size() + 16);
-    for (char c : raw) {
-        if (c == '\\') {
-            out += "\\\\";
-        } else if (c == '|') {
-            out += "\\|";
-        } else if (c == '\n') {
-            out += "\\n";
-        } else if (c == '\r') {
-            out += "\\r";
-        } else {
-            out += c;
-        }
+std::expected<std::string_view, core::EnteError> read_canonical_field(
+    std::string_view input,
+    size_t& cursor
+) noexcept {
+    if (cursor >= input.size()) return std::unexpected(core::EnteError::HistoryCorrupt);
+    const size_t colon = input.find(':', cursor);
+    if (colon == std::string_view::npos || colon == cursor) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
     }
-    return out;
+    size_t length = 0;
+    const auto [end, error] = std::from_chars(
+        input.data() + cursor, input.data() + colon, length);
+    if (error != std::errc{} || end != input.data() + colon) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
+    cursor = colon + 1;
+    if (length > input.size() - cursor) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
+    const auto value = input.substr(cursor, length);
+    cursor += length;
+    return value;
 }
 
-std::string unescape_payload(std::string_view esc) {
-    std::string out;
-    out.reserve(esc.size());
-    for (size_t i = 0; i < esc.size(); ++i) {
-        if (esc[i] == '\\' && i + 1 < esc.size()) {
-            char next = esc[i + 1];
-            if (next == '\\') { out += '\\'; ++i; }
-            else if (next == '|') { out += '|'; ++i; }
-            else if (next == 'n') { out += '\n'; ++i; }
-            else if (next == 'r') { out += '\r'; ++i; }
-            else { out += esc[i]; }
-        } else {
-            out += esc[i];
-        }
+std::expected<size_t, core::EnteError> parse_size(std::string_view value) noexcept {
+    size_t result = 0;
+    const auto [end, error] = std::from_chars(
+        value.data(), value.data() + value.size(), result);
+    if (value.empty() || error != std::errc{} || end != value.data() + value.size()) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
     }
-    return out;
+    return result;
 }
 
 bool sync_path_to_storage(const std::string& path) noexcept {
@@ -439,34 +453,12 @@ bool operation_enabled(
 }
 
 std::string serialize_event_records(const std::vector<HistoryEvent>& events) {
-    std::ostringstream output;
-    for (const auto& ev : events) {
-        std::string causal_str;
-        for (size_t i = 0; i < ev.causal_predecessors.size(); ++i) {
-            causal_str += ev.causal_predecessors[i].view();
-            if (i + 1 < ev.causal_predecessors.size()) causal_str += ",";
-        }
-
-        std::string evidence_str;
-        for (size_t i = 0; i < ev.evidence_refs.size(); ++i) {
-            evidence_str += ev.evidence_refs[i].view();
-            if (i + 1 < ev.evidence_refs.size()) evidence_str += ",";
-        }
-
-        output << ev.id.view() << "|"
-               << to_string(ev.kind) << "|"
-               << ev.identity.view() << "|"
-               << ev.logical_time << "|"
-               << ev.previous_event_digest.value << "|"
-               << ev.payload_digest.value << "|"
-               << ev.event_digest.value << "|"
-               << ev.authority_id << "|"
-               << ev.authority_epoch << "|"
-               << causal_str << "|"
-               << evidence_str << "|"
-               << escape_payload(ev.payload_content) << "\n";
+    std::string output;
+    for (const auto& event : events) {
+        const std::string record = canonical_event_material(event, true);
+        append_canonical_field(output, record);
     }
-    return output.str();
+    return output;
 }
 
 std::optional<EventKind> parse_event_kind(std::string_view kind) noexcept {
@@ -483,6 +475,7 @@ std::optional<EventKind> parse_event_kind(std::string_view kind) noexcept {
     if (kind == "EPISTEMIC_ACTION") return EventKind::EpistemicAction;
     if (kind == "REINTERPRETATION") return EventKind::Reinterpretation;
     if (kind == "ADAPTATION") return EventKind::Adaptation;
+    if (kind == "AUTHORITY_TRANSITION") return EventKind::AuthorityTransition;
     if (kind == "CONSTITUTIVE_WARNING") return EventKind::ConstitutiveWarning;
     if (kind == "CONSTITUTIVE_REPAIR") return EventKind::ConstitutiveRepair;
     if (kind == "COHERENCE_RESTORED") return EventKind::CoherenceRestored;
@@ -492,85 +485,97 @@ std::optional<EventKind> parse_event_kind(std::string_view kind) noexcept {
 std::expected<RecoverableHistory, core::EnteError> parse_event_records(
     std::istream& input
 ) {
-    RecoverableHistory rec;
-    std::string line;
-    while (std::getline(input, line)) {
-        if (line.empty() || line.starts_with("#")) {
-            return std::unexpected(core::EnteError::HistoryCorrupt);
-        }
-
-        std::stringstream fields(line);
-        std::string id, kind_str, identity, time_str, prev_digest, payload_digest,
-            event_digest, authority_id, authority_epoch, causal_str, evidence_str,
-            escaped_payload;
-        if (!std::getline(fields, id, '|') ||
-            !std::getline(fields, kind_str, '|') ||
-            !std::getline(fields, identity, '|') ||
-            !std::getline(fields, time_str, '|') ||
-            !std::getline(fields, prev_digest, '|') ||
-            !std::getline(fields, payload_digest, '|') ||
-            !std::getline(fields, event_digest, '|') ||
-            !std::getline(fields, authority_id, '|') ||
-            !std::getline(fields, authority_epoch, '|') ||
-            !std::getline(fields, causal_str, '|') ||
-            !std::getline(fields, evidence_str, '|') ||
-            !std::getline(fields, escaped_payload)) {
-            return std::unexpected(core::EnteError::HistoryCorrupt);
-        }
-
-        const auto kind = parse_event_kind(kind_str);
-        if (!kind.has_value()) return std::unexpected(core::EnteError::HistoryCorrupt);
-
-        core::LogicalTime logical_time = 0;
-        const auto* time_end = time_str.data() + time_str.size();
-        const auto [parsed_end, parse_error] = std::from_chars(
-            time_str.data(),
-            time_end,
-            logical_time
-        );
-        if (parse_error != std::errc{} || parsed_end != time_end) {
-            return std::unexpected(core::EnteError::HistoryCorrupt);
-        }
-
-        std::vector<core::EventId> causal_predecessors;
-        if (!causal_str.empty()) {
-            std::stringstream causal_stream(causal_str);
-            std::string item;
-            while (std::getline(causal_stream, item, ',')) {
-                if (!item.empty()) causal_predecessors.emplace_back(item);
-            }
-        }
-
-        std::vector<core::EvidenceId> evidence_refs;
-        if (!evidence_str.empty()) {
-            std::stringstream evidence_stream(evidence_str);
-            std::string item;
-            while (std::getline(evidence_stream, item, ',')) {
-                if (!item.empty()) evidence_refs.emplace_back(item);
-            }
-        }
-
-        HistoryEvent event{
-            .id = core::EventId(id),
-            .kind = *kind,
-            .identity = core::IdentityId(identity),
-            .logical_time = logical_time,
-            .previous_event_digest = core::Digest(prev_digest),
-            .causal_predecessors = std::move(causal_predecessors),
-            .evidence_refs = std::move(evidence_refs),
-            .authority_id = std::move(authority_id),
-            .authority_epoch = std::move(authority_epoch),
-            .payload_content = unescape_payload(escaped_payload),
-            .payload_digest = core::Digest(payload_digest),
-            .event_digest = core::Digest(event_digest)
+    try {
+        const std::string body{
+            std::istreambuf_iterator<char>(input),
+            std::istreambuf_iterator<char>()
         };
-        auto appended = rec.append(std::move(event));
-        if (!appended.has_value()) return std::unexpected(appended.error());
-    }
+        RecoverableHistory rec;
+        size_t body_cursor = 0;
+        while (body_cursor < body.size()) {
+            auto record_result = read_canonical_field(body, body_cursor);
+            if (!record_result.has_value()) return std::unexpected(record_result.error());
+            const std::string_view record = *record_result;
+            constexpr std::string_view prefix = "ENTE_CANONICAL_EVENT_V1";
+            if (!record.starts_with(prefix)) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
+            size_t cursor = prefix.size();
+            const auto id = read_canonical_field(record, cursor);
+            const auto kind_text = read_canonical_field(record, cursor);
+            const auto identity = read_canonical_field(record, cursor);
+            const auto time_text = read_canonical_field(record, cursor);
+            const auto previous_digest = read_canonical_field(record, cursor);
+            const auto causal_count_text = read_canonical_field(record, cursor);
+            if (!id.has_value() || !kind_text.has_value() || !identity.has_value() ||
+                !time_text.has_value() || !previous_digest.has_value() ||
+                !causal_count_text.has_value()) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
+            const auto kind = parse_event_kind(*kind_text);
+            const auto time = parse_size(*time_text);
+            const auto causal_count = parse_size(*causal_count_text);
+            if (!kind.has_value() || !time.has_value() || !causal_count.has_value()) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
 
-    if (rec.empty()) return std::unexpected(core::EnteError::HistoryGap);
-    if (!rec.verify_integrity()) return std::unexpected(core::EnteError::HistoryCorrupt);
-    return rec;
+            std::vector<core::EventId> causal_predecessors;
+            causal_predecessors.reserve(*causal_count);
+            for (size_t i = 0; i < *causal_count; ++i) {
+                auto predecessor = read_canonical_field(record, cursor);
+                if (!predecessor.has_value()) return std::unexpected(predecessor.error());
+                causal_predecessors.emplace_back(*predecessor);
+            }
+
+            const auto evidence_count_text = read_canonical_field(record, cursor);
+            if (!evidence_count_text.has_value()) {
+                return std::unexpected(evidence_count_text.error());
+            }
+            const auto evidence_count = parse_size(*evidence_count_text);
+            if (!evidence_count.has_value()) return std::unexpected(evidence_count.error());
+            std::vector<core::EvidenceId> evidence_refs;
+            evidence_refs.reserve(*evidence_count);
+            for (size_t i = 0; i < *evidence_count; ++i) {
+                auto evidence = read_canonical_field(record, cursor);
+                if (!evidence.has_value()) return std::unexpected(evidence.error());
+                evidence_refs.emplace_back(*evidence);
+            }
+
+            const auto authority_id = read_canonical_field(record, cursor);
+            const auto authority_epoch = read_canonical_field(record, cursor);
+            const auto payload = read_canonical_field(record, cursor);
+            const auto payload_digest = read_canonical_field(record, cursor);
+            const auto event_digest = read_canonical_field(record, cursor);
+            if (!authority_id.has_value() || !authority_epoch.has_value() ||
+                !payload.has_value() || !payload_digest.has_value() ||
+                !event_digest.has_value() || cursor != record.size()) {
+                return std::unexpected(core::EnteError::HistoryCorrupt);
+            }
+
+            HistoryEvent event{
+                .id = core::EventId(*id),
+                .kind = *kind,
+                .identity = core::IdentityId(*identity),
+                .logical_time = static_cast<core::LogicalTime>(*time),
+                .previous_event_digest = core::Digest(*previous_digest),
+                .causal_predecessors = std::move(causal_predecessors),
+                .evidence_refs = std::move(evidence_refs),
+                .authority_id = std::string(*authority_id),
+                .authority_epoch = std::string(*authority_epoch),
+                .payload_content = std::string(*payload),
+                .payload_digest = core::Digest(*payload_digest),
+                .event_digest = core::Digest(*event_digest)
+            };
+            auto appended = rec.append(std::move(event));
+            if (!appended.has_value()) return std::unexpected(appended.error());
+        }
+
+        if (rec.empty()) return std::unexpected(core::EnteError::HistoryGap);
+        if (!rec.verify_integrity()) return std::unexpected(core::EnteError::HistoryCorrupt);
+        return rec;
+    } catch (...) {
+        return std::unexpected(core::EnteError::HistoryCorrupt);
+    }
 }
 
 std::expected<void, core::EnteError> write_contents_atomically(
@@ -640,7 +645,7 @@ std::expected<void, core::EnteError> RecoverableHistory::save_to_file(
     PersistenceOptions options
 ) const noexcept {
     try {
-        const std::string contents = "# ENTE_REC_V3\n" + serialize_event_records(events_);
+        const std::string contents = "# ENTE_REC_V4\n" + serialize_event_records(events_);
         return write_contents_atomically(filepath, contents, options);
     } catch (...) {
         return std::unexpected(core::EnteError::PersistenceFailure);
@@ -654,7 +659,7 @@ std::expected<RecoverableHistory, core::EnteError> RecoverableHistory::load_from
             return std::unexpected(core::EnteError::HistoryGap);
         }
         std::string header;
-        if (!std::getline(in, header) || header != "# ENTE_REC_V3") {
+        if (!std::getline(in, header) || header != "# ENTE_REC_V4") {
             return std::unexpected(core::EnteError::HistoryCorrupt);
         }
         return parse_event_records(in);
@@ -670,12 +675,12 @@ std::expected<void, core::EnteError> RecoverableHistory::save_authenticated_to_f
 ) const noexcept {
     try {
         const std::string body = serialize_event_records(events_);
-        const std::string signed_message = "ENTE_REC_V3_AUTHENTICATED\n" + body;
+        const std::string signed_message = "ENTE_REC_V4_AUTHENTICATED\n" + body;
         const auto signature = signer.sign_hex(signed_message);
         if (!signature.has_value()) return std::unexpected(signature.error());
 
         const std::string contents =
-            "# ENTE_REC_V3_AUTHENTICATED\n# ED25519_SIGNATURE=" + *signature + "\n" + body;
+            "# ENTE_REC_V4_AUTHENTICATED\n# ED25519_SIGNATURE=" + *signature + "\n" + body;
         return write_contents_atomically(filepath, contents, options);
     } catch (...) {
         return std::unexpected(core::EnteError::CryptographicFailure);
@@ -694,7 +699,7 @@ std::expected<RecoverableHistory, core::EnteError> RecoverableHistory::load_auth
             std::istreambuf_iterator<char>(input),
             std::istreambuf_iterator<char>()
         };
-        constexpr std::string_view header = "# ENTE_REC_V3_AUTHENTICATED\n";
+        constexpr std::string_view header = "# ENTE_REC_V4_AUTHENTICATED\n";
         constexpr std::string_view signature_prefix = "# ED25519_SIGNATURE=";
         if (!contents.starts_with(header)) {
             return std::unexpected(core::EnteError::InvalidSignature);
@@ -713,7 +718,7 @@ std::expected<RecoverableHistory, core::EnteError> RecoverableHistory::load_auth
         const std::string_view signature = signature_line.substr(signature_prefix.size());
         const std::string_view body(contents.data() + signature_line_end + 1,
                                     contents.size() - signature_line_end - 1);
-        const std::string signed_message = "ENTE_REC_V3_AUTHENTICATED\n" + std::string(body);
+        const std::string signed_message = "ENTE_REC_V4_AUTHENTICATED\n" + std::string(body);
         if (!core::Ed25519KeyPair::verify_hex(
                 trusted_public_key_hex,
                 signed_message,

@@ -150,7 +150,7 @@ int main() {
 
         std::cout << "[9] Full Constitutional Invariant Verification (C1..C14)...\n";
         auto rep = process_b.verify();
-        ENTE_TEST_ASSERT(rep.is_valid());
+        ENTE_TEST_ASSERT(rep.status == constitution::ConstitutiveStatus::Weakened);
 
         std::cout << "\n[SUCCESS] Vertical demonstration complete: The ENTE was born, perturbed, migrated across hardware,\n"
                   << "          persisted, recovered cold, attested independently, and maintained its continuous identity!\n";
@@ -159,4 +159,3 @@ int main() {
     std::filesystem::remove(test_file);
     return 0;
 }
-

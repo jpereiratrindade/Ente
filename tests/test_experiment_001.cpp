@@ -1,8 +1,11 @@
 #include "ente/realization/runner.hpp"
 #include "ente/core/hash.hpp"
+#include "ente/judgment/fixture.hpp"
 #include "ente/testing/test_harness.hpp"
+#include "ente/testing/history_fixtures.hpp"
 #include <iostream>
 #include <format>
+#include <array>
 
 using namespace ente;
 
@@ -94,24 +97,11 @@ void run_experiment_001_context_change() {
         .status = epistemic::InterpretationStatus::Current,
         .created_at = 5
     };
-    ente.adopt_interpretation(std::move(new_interp));
+    ENTE_TEST_ASSERT(ente.adopt_interpretation(std::move(new_interp)).has_value());
 
     // ACTION_SUPPORT_TRACE BUGFIX: Action MUST remain suspended because I0002 does NOT support MoveForward!
     ENTE_TEST_ASSERT(ente.domain().is_action_suspended());
     ENTE_TEST_ASSERT(ente.domain().active_action() == realization::SyntheticDomain::Action::HoldPosition);
-
-    // Record Coherence Restored
-    auto restore_ev = ente.history_mut().create_event(
-        history::EventKind::CoherenceRestored,
-        id,
-        5,
-        {ente.history().head().id},
-        {ev3, ev4},
-        "COHERENCE_RESTORED:I0002:possible_obstruction",
-        std::string(ente.authority_lineage().active_epoch().authorized_authority.view()),
-        std::string(ente.authority_lineage().active_epoch().epoch_id.view())
-    );
-    ENTE_TEST_ASSERT(ente.history_mut().append(std::move(restore_ev)).has_value());
 
     // Final verification
     auto final_rep = ente.verify();
@@ -163,7 +153,14 @@ void run_fail_003_untraceable_transition() {
     history::RecoverableHistory rec;
     core::IdentityId id("ente-0");
 
-    auto ev0 = rec.create_event(history::EventKind::Genesis, id, 0, {}, {}, "GENESIS");
+    auto ev0 = rec.create_event(
+        history::EventKind::Genesis,
+        id,
+        0,
+        {},
+        {},
+        testing::canonical_genesis_payload(id)
+    );
     ENTE_TEST_ASSERT(rec.append(ev0).has_value());
 
     // Try to append an event with a non-existent causal predecessor
@@ -173,7 +170,16 @@ void run_fail_003_untraceable_transition() {
         1,
         {core::EventId("E_NON_EXISTENT_GHOST")},
         {},
-        "UNTRACEABLE_REINTERPRETATION"
+        history::serialize_interpretation_payload({
+            .id = core::InterpretationId("I-GHOST"),
+            .subject = "ghost",
+            .proposition = "Untraceable reinterpretation",
+            .supporting_evidence = {},
+            .challenging_evidence = {},
+            .supersedes = core::InterpretationId("I-MISSING"),
+            .status = epistemic::InterpretationStatus::Current,
+            .created_at = 1
+        })
     );
 
     auto res = rec.append(ev_bad);
@@ -218,7 +224,12 @@ void run_fail_005_deterministic_replay() {
     auto run_instance = []() {
         realization::EnteRealization instance;
         core::IdentityId id("ente-0");
-        ENTE_TEST_ASSERT(instance.genesis(id).has_value());
+        std::array<uint8_t, core::Ed25519KeyPair::key_size> authority_seed{};
+        authority_seed.fill(0x42);
+        auto authority_signer = core::Ed25519KeyPair::from_private_seed(authority_seed);
+        ENTE_TEST_ASSERT(authority_signer.has_value());
+        ENTE_TEST_ASSERT(instance.genesis(
+            id, std::nullopt, std::move(*authority_signer)).has_value());
         ENTE_TEST_ASSERT(instance.step(1, {{.id = core::EvidenceId("EV1"), .source = "cam", .subject = "path_clear", .value = "true", .observed_at = 1, .status = epistemic::EpistemicStatus::Observed}}, "s1").has_value());
         ENTE_TEST_ASSERT(instance.step(2, {{.id = core::EvidenceId("EV2"), .source = "lidar", .subject = "unexpected_motion", .value = "true", .observed_at = 2, .status = epistemic::EpistemicStatus::Unknown}}, "s2").has_value());
         return instance;

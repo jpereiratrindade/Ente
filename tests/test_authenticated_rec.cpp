@@ -2,6 +2,7 @@
 #include "ente/history/rec.hpp"
 #include "ente/realization/runner.hpp"
 #include "ente/testing/test_harness.hpp"
+#include "ente/testing/history_fixtures.hpp"
 
 #include <array>
 #include <charconv>
@@ -55,7 +56,7 @@ ente::history::RecoverableHistory make_history(std::string_view payload) {
         0,
         {},
         {},
-        "GENESIS"
+        ente::testing::canonical_genesis_payload(identity)
     );
     ENTE_TEST_ASSERT(history.append(genesis).has_value());
     auto observation = history.create_event(
@@ -64,7 +65,8 @@ ente::history::RecoverableHistory make_history(std::string_view payload) {
         1,
         {genesis.id},
         {ente::core::EvidenceId("EV-AUTH-1")},
-        std::string(payload)
+        ente::testing::canonical_observation_payload(
+            ente::core::EvidenceId("EV-AUTH-1"), 1, payload)
     );
     ENTE_TEST_ASSERT(history.append(std::move(observation)).has_value());
     return history;

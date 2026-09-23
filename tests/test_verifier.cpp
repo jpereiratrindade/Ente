@@ -3,6 +3,7 @@
 #include "ente/history/rec.hpp"
 #include "ente/core/hash.hpp"
 #include "ente/testing/test_harness.hpp"
+#include "ente/testing/history_fixtures.hpp"
 #include <iostream>
 
 int main() {
@@ -28,10 +29,28 @@ int main() {
     });
     ENTE_TEST_ASSERT(gen_res.has_value());
 
-    auto ev_gen = history.create_event(history::EventKind::Genesis, id, 0, {}, {}, "GENESIS");
+    auto authority_signer = core::Ed25519KeyPair::generate();
+    ENTE_TEST_ASSERT(authority_signer.has_value());
+    authority::AuthorityLineage authority_lineage;
+    auto root_epoch = authority_lineage.initialize_root_epoch(
+        authority::AuthorityId("auth-root"), authority_signer->public_key_hex(), 0);
+    ENTE_TEST_ASSERT(root_epoch.has_value());
+    const auto genesis_payload = history::serialize_genesis_payload({
+        .identity = id,
+        .genesis_digest = gen_res->genesis_digest,
+        .material_anchor_id = "test-anchor",
+        .hardware_fingerprint = "test-fingerprint",
+        .substrate_type = "SIMULATED_MEMORY",
+        .root_authority_public_key = authority_signer->public_key_hex()
+    });
+    auto ev_gen = history.create_event(
+        history::EventKind::Genesis, id, 0, {}, {}, genesis_payload,
+        "auth-root", std::string(root_epoch->epoch_id.view()));
     ENTE_TEST_ASSERT(history.append(ev_gen).has_value());
 
-    auto report1 = verifier.verify(genesis_service.state(), genesis_service.record(), history, std::nullopt);
+    auto report1 = verifier.verify(
+        genesis_service.state(), genesis_service.record(), history,
+        std::nullopt, std::cref(authority_lineage));
     ENTE_TEST_ASSERT(report1.status == constitution::ConstitutiveStatus::Valid);
     ENTE_TEST_ASSERT(report1.is_valid());
     ENTE_TEST_ASSERT(report1.profile == constitution::ConformanceProfile::EnteLocal);
@@ -40,7 +59,8 @@ int main() {
         constitution::ConformanceProfile::EnteDistributed
     );
     auto distributed_report = distributed_verifier.verify(
-        genesis_service.state(), genesis_service.record(), history, std::nullopt
+        genesis_service.state(), genesis_service.record(), history,
+        std::nullopt, std::cref(authority_lineage)
     );
     ENTE_TEST_ASSERT(distributed_report.profile == constitution::ConformanceProfile::EnteDistributed);
     ENTE_TEST_ASSERT(distributed_report.status == constitution::ConstitutiveStatus::Suspended);
@@ -63,7 +83,8 @@ int main() {
     // naming an EvidenceId that was never introduced by an Observation event.
     history::RecoverableHistory forged_provenance;
     auto forged_genesis = forged_provenance.create_event(
-        history::EventKind::Genesis, id, 0, {}, {}, "GENESIS"
+        history::EventKind::Genesis, id, 0, {}, {}, genesis_payload,
+        "auth-root", std::string(root_epoch->epoch_id.view())
     );
     ENTE_TEST_ASSERT(forged_provenance.append(forged_genesis).has_value());
     auto forged_judgment = forged_provenance.create_event(
@@ -72,7 +93,11 @@ int main() {
         1,
         {forged_genesis.id},
         {core::EvidenceId("EV-NEVER-OBSERVED")},
-        "JUDGMENT_WITH_FORGED_PROVENANCE"
+        history::serialize_judgment_payload({
+            .compatibility = "SUPPORTED",
+            .rationale = "forged provenance",
+            .engine_digest = core::HashUtil::sha256("test-engine")
+        })
     );
     const auto forged_result = forged_provenance.append(forged_judgment);
     ENTE_TEST_ASSERT(!forged_result.has_value());
