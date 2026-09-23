@@ -7,7 +7,7 @@
 
 Este documento estabelece o relatório formal de verificação empírica, estrutural e de integridade do **ENTE-0**, a primeira realização mínima candidata em C++23 da categoria ontológica **ENTE** (*Entidade com Núcleo Télico e Epistêmico*).
 
-O sistema foi submetido a uma suíte de 21 baterias de testes automatizados compreendendo:
+O sistema foi submetido a uma suíte de 22 baterias de testes automatizados compreendendo:
 1. **Verificação de Invariantes Constitutivos (C1..C14)**;
 2. **Benchmark Estocástico de Monte Carlo (5.000 ensaios)** contra 4 arquiteturas de referência (baselines);
 3. **Teste de Longevidade & Escalabilidade Constitutiva (10.000 acontecimentos contínuos / 20.002 eventos REC)**;
@@ -15,9 +15,10 @@ O sistema foi submetido a uma suíte de 21 baterias de testes automatizados comp
 5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat, Bomba de Infusão Crítica em UTI e Estação de Campo / Irrigação);
 6. **Autenticação do REC V4 canônico com Ed25519**, vetor RFC 8032 e rejeição de hash-chain adversarial recalculada;
 7. **Delegação autenticada C14**, com assinatura da autoridade predecessora, janela temporal, replay adversarial e reconstrução pós-restart;
-8. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
+8. **Ensaio de Durabilidade em Substrato Declarado (Gate G6)**, cobrindo terminação abrupta de processo (`_exit`), *torn writes* e barreiras POSIX de diretório;
+9. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
 
-**Status de Verificação:** 21/21 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
+**Status de Verificação:** 22/22 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
 
 ---
 

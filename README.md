@@ -1,9 +1,9 @@
 # ENTE-0 — Primeira Realização em C++23 / C++26
 
-> **Status: `ENTE-0 IMPLEMENTED_CANDIDATE` · `ENTE-1 LOCAL FACTUAL CORE` em desenvolvimento**
+> **Status: `ENTE-1 VERIFIED LOCAL CORE` (10/10 no perfil ENTE-LOCAL)**
 > *"Sempre pronto. Sempre incompleto."*
 
-Este repositório contém **ENTE-0**, a primeira realização mínima candidata capaz de demonstrar em testes determinísticos controlados os compromissos ontológicos, epistêmicos e transacionais da categoria constitutiva **ENTE** em C++23 (compatível com C++26).
+Este repositório contém **ENTE-0 / ENTE-1**, a primeira realização demonstrando em testes determinísticos e ensaios de substrato os compromissos ontológicos, epistêmicos e transacionais da categoria constitutiva **ENTE** em C++23 (compatível com C++26).
 
 Para a análise formal dos limites de segurança, premissas de confiança e o que é garantido vs simulado, consulte o documento normativo:
 📖 **[Modelo de Ameaças & Matriz de Garantias (THREAT_MODEL.md)](docs/THREAT_MODEL.md)**
@@ -57,7 +57,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação Completa (21 Testes)
+### Executar a Suíte de Verificação Completa (22 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
 ```
@@ -114,6 +114,7 @@ cmake --install build --prefix /usr/local
 
 - **Manual de Desenvolvimento & Integração de Domínios**: [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md)
 - **Perfis de Conformidade e Claims Verificáveis**: [`docs/ENTE-CONFORMANCE-PROFILES.md`](docs/ENTE-CONFORMANCE-PROFILES.md)
+- **Relatório de Durabilidade em Substrato Declarado (Gate G6)**: [`docs/ENTE-SUBSTRATE-DURABILITY-G6-REPORT.md`](docs/ENTE-SUBSTRATE-DURABILITY-G6-REPORT.md)
 - **Website Interativo & Manifesto**: [`docs/index.html`](docs/index.html) *(Deploy no GitHub Pages)*
 - **Aplicação Visual ENTE Observatory (Field Station)**: [`examples/field-station/web/index.html`](examples/field-station/web/index.html)
 - **Relatório Formal de Demonstração & Falsificação**: [`docs/ENTE-FORMAL-REPORT-v0.1.0.md`](docs/ENTE-FORMAL-REPORT-v0.1.0.md)

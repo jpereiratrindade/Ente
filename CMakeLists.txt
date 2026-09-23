@@ -147,12 +147,18 @@ target_link_libraries(ente_field_station PRIVATE ente_core)
 target_include_directories(ente_field_station PRIVATE examples/field-station)
 add_test(NAME test_field_station COMMAND ente_field_station)
 
+# Substrate Durability & Process Death Verification (G6)
+add_executable(test_substrate_durability tests/test_substrate_durability.cpp)
+target_link_libraries(test_substrate_durability PRIVATE ente_core)
+add_test(NAME test_substrate_durability COMMAND test_substrate_durability)
+
 # CTest Suite Categorization Labels
 set_tests_properties(test_monte_carlo_benchmark PROPERTIES LABELS "benchmark;monte_carlo")
 set_tests_properties(test_rec_longevity PROPERTIES LABELS "long;performance;longevity")
 set_tests_properties(test_chaos_invariants PROPERTIES LABELS "chaos;security")
 set_tests_properties(test_authenticated_rec PROPERTIES LABELS "authentication;security")
 set_tests_properties(test_process_crash_recovery PROPERTIES LABELS "crash;recovery;posix")
+set_tests_properties(test_substrate_durability PROPERTIES LABELS "durability;substrate;posix")
 set_tests_properties(test_case_lab PROPERTIES LABELS "case_lab;domain")
 set_tests_properties(test_clinical_lab PROPERTIES LABELS "clinical_lab;domain")
 set_tests_properties(test_field_station PROPERTIES LABELS "field_station;visual;domain")
