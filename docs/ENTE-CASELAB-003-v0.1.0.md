@@ -5,7 +5,7 @@
 
 ## 1. Contexto e Problema de Domínio
 
-O **Case Lab 003 (Field Station & Observatory)** modela uma estação agrícola autônoma de irrigação de precisão governada pela arquitetura constitutiva **ENTE-0** através da interface pública `GenericAgentWithEnte<FieldStationDomain>` ([`field_domain.hpp`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/field_domain.hpp)).
+O **Case Lab 003 (Field Station & Observatory)** modela uma estação agrícola autônoma de irrigação de precisão governada pela arquitetura constitutiva **ENTE-0** através da interface pública `GenericAgentWithEnte<FieldStationDomain>` ([`field_domain.hpp`](../examples/field-station/field_domain.hpp)).
 
 A estação responde à pergunta operacional:
 > **“É seguro e justificado irrigar este setor agora?”**
@@ -69,6 +69,6 @@ O **SafeHold** (*Válvula Fechada*) é a resposta de segurança imediata diante 
 
 ## 4. Executáveis e Visualização
 
-- **Binário C++26**: [`build/ente_field_station`](file:///home/jpereiratrindade/dev/cpp/Ente/build/ente_field_station)
-- **Interface Web Interativa (Observatory)**: [`examples/field-station/web/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/web/index.html)
+- **Binário C++26**: [`build/ente_field_station`](../build/ente_field_station)
+- **Interface Web Interativa (Observatory)**: [`examples/field-station/web/index.html`](../examples/field-station/web/index.html)
 - **Suíte de Testes Automatizada**: Integrado via CTest (`test_field_station`).

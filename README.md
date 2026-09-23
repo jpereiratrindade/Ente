@@ -6,7 +6,7 @@
 Este repositório contém **ENTE-0**, a primeira realização mínima candidata capaz de demonstrar em testes determinísticos controlados os compromissos ontológicos, epistêmicos e transacionais da categoria constitutiva **ENTE** em C++23 (compatível com C++26).
 
 Para a análise formal dos limites de segurança, premissas de confiança e o que é garantido vs simulado, consulte o documento normativo:
-📖 **[Modelo de Ameaças & Matriz de Garantias (THREAT_MODEL.md)](file:///home/jpereiratrindade/dev/cpp/Ente/docs/THREAT_MODEL.md)**
+📖 **[Modelo de Ameaças & Matriz de Garantias (THREAT_MODEL.md)](docs/THREAT_MODEL.md)**
 
 ---
 
@@ -112,19 +112,19 @@ cmake --install build --prefix /usr/local
 
 ## 4. Documentação e Casos de Uso
 
-- **Manual de Desenvolvimento & Integração de Domínios**: [`docs/DEVELOPER_GUIDE.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/DEVELOPER_GUIDE.md) *(Novo!)*
-- **Perfis de Conformidade e Claims Verificáveis**: [`docs/ENTE-CONFORMANCE-PROFILES.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CONFORMANCE-PROFILES.md)
-- **Website Interativo & Manifesto**: [`docs/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/index.html) *(Deploy no GitHub Pages)*
-- **Aplicação Visual ENTE Observatory (Field Station)**: [`examples/field-station/web/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/web/index.html)
-- **Relatório Formal de Demonstração & Falsificação**: [`docs/ENTE-FORMAL-REPORT-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-FORMAL-REPORT-v0.1.0.md)
-- **Normas Constitutivas (C1..C14)**: [`docs/ENTE-CONSTITUTION-001-v0.6.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CONSTITUTION-001-v0.6.0.md)
-- **Ontologia Operacional**: [`docs/ENTE-ONTOLOGY-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-ONTOLOGY-001-v0.1.0.md)
-- **Reconsideração Contínua de Contexto (RCC)**: [`docs/ENTE-RCC-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-RCC-001-v0.1.0.md)
-- **Arquitetura de Sistema em C++26**: [`docs/ENTE-SYSTEM-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-SYSTEM-001-v0.1.0.md)
-- **Protocolo Experimental (EXP-001)**: [`docs/ENTE-EXPERIMENT-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-EXPERIMENT-001-v0.1.0.md)
-- **Consumo de Domínio 001 (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-001-v0.1.0.md)
-- **Consumo de Domínio 002 (Laboratório Clínico UTI)**: [`docs/ENTE-CASELAB-002-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-002-v0.1.0.md)
-- **Consumo de Domínio 003 (Estação de Campo & Irrigação)**: [`docs/ENTE-CASELAB-003-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CASELAB-003-v0.1.0.md) *(Código em [`examples/field-station/`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/))*
+- **Manual de Desenvolvimento & Integração de Domínios**: [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md)
+- **Perfis de Conformidade e Claims Verificáveis**: [`docs/ENTE-CONFORMANCE-PROFILES.md`](docs/ENTE-CONFORMANCE-PROFILES.md)
+- **Website Interativo & Manifesto**: [`docs/index.html`](docs/index.html) *(Deploy no GitHub Pages)*
+- **Aplicação Visual ENTE Observatory (Field Station)**: [`examples/field-station/web/index.html`](examples/field-station/web/index.html)
+- **Relatório Formal de Demonstração & Falsificação**: [`docs/ENTE-FORMAL-REPORT-v0.1.0.md`](docs/ENTE-FORMAL-REPORT-v0.1.0.md)
+- **Normas Constitutivas (C1..C14)**: [`docs/ENTE-CONSTITUTION-001-v0.6.0.md`](docs/ENTE-CONSTITUTION-001-v0.6.0.md)
+- **Ontologia Operacional**: [`docs/ENTE-ONTOLOGY-001-v0.1.0.md`](docs/ENTE-ONTOLOGY-001-v0.1.0.md)
+- **Reconsideração Contínua de Contexto (RCC)**: [`docs/ENTE-RCC-001-v0.1.0.md`](docs/ENTE-RCC-001-v0.1.0.md)
+- **Arquitetura de Sistema em C++26**: [`docs/ENTE-SYSTEM-001-v0.1.0.md`](docs/ENTE-SYSTEM-001-v0.1.0.md)
+- **Protocolo Experimental (EXP-001)**: [`docs/ENTE-EXPERIMENT-001-v0.1.0.md`](docs/ENTE-EXPERIMENT-001-v0.1.0.md)
+- **Consumo de Domínio 001 (Laboratório KitKat)**: [`docs/ENTE-CASELAB-001-v0.1.0.md`](docs/ENTE-CASELAB-001-v0.1.0.md)
+- **Consumo de Domínio 002 (Laboratório Clínico UTI)**: [`docs/ENTE-CASELAB-002-v0.1.0.md`](docs/ENTE-CASELAB-002-v0.1.0.md)
+- **Consumo de Domínio 003 (Estação de Campo & Irrigação)**: [`docs/ENTE-CASELAB-003-v0.1.0.md`](docs/ENTE-CASELAB-003-v0.1.0.md) *(Código em [`examples/field-station/`](examples/field-station/))*
 
 ---
 

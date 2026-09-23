@@ -7,7 +7,7 @@
 
 O **ENTE-0** atua como uma camada de **governança ontológica, epistêmica e transacional** desacoplada da lógica operacional de domínio. Em vez de impor herança ou acoplamento a classes base proprietárias, o ENTE utiliza **Concepts do C++23/C++26** (`OperationalDomainConcept`) para certificar que qualquer sistema ou agente possa ter suas decisões e execuções mediadas por um ciclo transacional de duas fases, invariantes constitutivos formais (C1..C14) e pelo mecanismo de Reconsideração Contínua de Contexto (RCC).
 
-Para uma análise formal dos limites de segurança, premissas de confiança e o que é garantido vs simulado, consulte o [Modelo de Ameaças & Matriz de Garantias](file:///home/jpereiratrindade/dev/cpp/Ente/docs/THREAT_MODEL.md).
+Para uma análise formal dos limites de segurança, premissas de confiança e o que é garantido vs simulado, consulte o [Modelo de Ameaças & Matriz de Garantias](THREAT_MODEL.md).
 
 ```text
 ┌───────────────────────────────────────────────────────────────┐
@@ -44,7 +44,7 @@ Para uma análise formal dos limites de segurança, premissas de confiança e o 
 
 ## 2. O Concept `OperationalDomainConcept`
 
-Para que um tipo de domínio possa ser governado pelo ENTE, ele deve satisfazer o concept C++23/C++26 [`ente::domain::OperationalDomainConcept`](file:///home/jpereiratrindade/dev/cpp/Ente/include/ente/domain/generic_agent.hpp):
+Para que um tipo de domínio possa ser governado pelo ENTE, ele deve satisfazer o concept C++23/C++26 [`ente::domain::OperationalDomainConcept`](../include/ente/domain/generic_agent.hpp):
 
 ```cpp
 #include <ente/domain/generic_agent.hpp>
