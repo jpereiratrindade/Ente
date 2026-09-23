@@ -1,9 +1,12 @@
-# ENTE-0 — Primeira Realização em C++26
+# ENTE-0 — Primeira Realização em C++23 / C++26
 
 > **Status: `IMPLEMENTED_CANDIDATE`**  
 > *"Sempre pronto. Sempre incompleto."*
 
-Este repositório contém **ENTE-0**, a primeira realização mínima candidata capaz de demonstrar em testes determinísticos controlados os compromissos ontológicos e epistêmicos da categoria constitutiva **ENTE** em C++26.
+Este repositório contém **ENTE-0**, a primeira realização mínima candidata capaz de demonstrar em testes determinísticos controlados os compromissos ontológicos, epistêmicos e transacionais da categoria constitutiva **ENTE** em C++23 (compatível com C++26).
+
+Para a análise formal dos limites de segurança, premissas de confiança e o que é garantido vs simulado, consulte o documento normativo:
+📖 **[Modelo de Ameaças & Matriz de Garantias (THREAT_MODEL.md)](file:///home/jpereiratrindade/dev/cpp/Ente/docs/THREAT_MODEL.md)**
 
 ---
 
@@ -11,11 +14,12 @@ Este repositório contém **ENTE-0**, a primeira realização mínima candidata 
 
 ```text
 1. CONSTITUTION (v0.6.0)  -> Autoridade ontológica máxima; define o que ENTE é
-2. ONTOLOGY (v0.1.0)      -> Vocabulário operacional, entidades e transições válidas
-3. RCC (v0.1.0)           -> Dinâmica contínua de reconsideração de interpretações
-4. SYSTEM (v0.1.0)        -> Desenho arquitetural em C++26
-5. EXPERIMENT (v0.1.0)    -> Protocolo de demonstração e falsificação empírica
-6. BOOTSTRAP (v0.1.0)     -> Roteiro executável de compilação e verificação
+2. THREAT MODEL (v1.0.0)  -> Delimitação de garantias, confiança e ameaças
+3. ONTOLOGY (v0.1.0)      -> Vocabulário operacional, entidades e transições válidas
+4. RCC (v0.1.0)           -> Dinâmica contínua de reconsideração de interpretações
+5. SYSTEM (v0.1.0)        -> Desenho arquitetural em C++23/C++26
+6. EXPERIMENT (v0.1.0)    -> Protocolo de demonstração e falsificação empírica
+7. BOOTSTRAP (v0.1.0)     -> Roteiro executável de compilação e verificação
 ```
 
 ---
@@ -32,7 +36,7 @@ Este repositório contém **ENTE-0**, a primeira realização mínima candidata 
 - **C8 (UNKNOWN_REPRESENTABILITY)**: `UNKNOWN` é um estado epistêmico de primeira classe (nunca coagido silenciosamente).
 - **C9 (GENESIS_ANCHOR)**: Gênese única, irrevogável e ancorada por digest criptográfico.
 - **C10 (TEMPORAL_INTEGRITY)**: Encadeamento temporal e grafo causal RIT no ledger (REC).
-- **C11 (LINEAGE_SINGULARITY)**: Linhagem singular não bifurcada.
+- **C11 (LINEAGE_SINGULARITY)**: Linhagem singular não bifurcada *(Mono-nó: localmente único)*.
 - **C12 (HISTORY_RECOVERABILITY)**: Reconstrução histórica da trajetória a partir da Gênese (HRE).
 - **C13 (CONSTITUTIVE_FINALITY_SAFETY)**: Garantia de ramo único e integridade de finalidade local.
 - **C14 (CONSTITUTIVE_AUTHORITY_CONTINUITY)**: Linhagem contínua e ininterrupta de épocas de autoridade legítima.
@@ -42,7 +46,7 @@ Este repositório contém **ENTE-0**, a primeira realização mínima candidata 
 ## 3. Compilação e Testes
 
 ### Pré-requisitos
-- Compilador C++26 (`GCC 14+` ou `Clang 18+`)
+- Compilador C++23 (`GCC 13/14+` ou `Clang 17/18+`)
 - `CMake 3.25+`
 - `Ninja`
 

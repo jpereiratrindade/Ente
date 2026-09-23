@@ -43,10 +43,22 @@ AttestationResult IndependentAttestationVerifier::evaluate(
         }
     }
 
-    // 4. Cryptographic Attestation Signature Verification
-    std::string evidence_payload = std::format("{}:{}:{}",
+    // 4. Nonce / Freshness Validation (Prevent replay attacks)
+    if (evidence.nonce.empty()) {
+        return AttestationResult{
+            .verdict = AppraisalVerdict::Untrusted,
+            .verifier_id = "independent-verifier-0",
+            .evidence_digest = evidence.configuration_digest,
+            .evaluated_at = evidence.measured_at,
+            .satisfies_constitutional_floor = false
+        };
+    }
+
+    // 5. Cryptographic Attestation Signature Verification
+    std::string evidence_payload = std::format("{}:{}:{}:{}",
         evidence.anchor.id.view(),
         evidence.configuration_digest.value,
+        evidence.nonce,
         evidence.measured_at
     );
     core::Digest expected_signature = core::HashUtil::combine(
@@ -55,13 +67,13 @@ AttestationResult IndependentAttestationVerifier::evaluate(
     );
 
     if (evidence.attestation_signature.is_zero()) {
-        // Evidence is structurally acceptable, but lacks cryptographic attestation signature
+        // Evidence lacks cryptographic attestation signature -> fails constitutional floor
         return AttestationResult{
             .verdict = AppraisalVerdict::StructurallyAcceptable,
             .verifier_id = "independent-verifier-0",
             .evidence_digest = core::HashUtil::sha256(evidence_payload),
             .evaluated_at = evidence.measured_at,
-            .satisfies_constitutional_floor = true
+            .satisfies_constitutional_floor = false
         };
     }
 

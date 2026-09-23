@@ -103,7 +103,7 @@ void run_sequential_benchmark() {
         if (ev.payload_content.find("RCC:PERTURBATION") != std::string::npos) {
             found_rcc_perturbation = true;
         }
-        if (ev.payload_content.find("RUNTIME_ASSURANCE:SAFE_HOLD") != std::string::npos) {
+        if (ev.payload_content.find("SAFE_HOLD") != std::string::npos) {
             found_safe_hold_directive = true;
         }
     }
@@ -133,7 +133,7 @@ void run_bootstrap_anomaly_test() {
     // Verify that first step evaluated RCC directly without bypassing security
     bool found_safe_hold = false;
     for (const auto& ev : fresh_agent.ente().history().events()) {
-        if (ev.payload_content.find("RUNTIME_ASSURANCE:SAFE_HOLD") != std::string::npos) {
+        if (ev.payload_content.find("SAFE_HOLD") != std::string::npos) {
             found_safe_hold = true;
         }
     }

@@ -12,8 +12,9 @@ enum class EventKind : uint8_t {
     Interpretation,
     Perturbation,
     Judgment,
-    EpistemicAction,
+    ActionIntended,
     ActionExecution,
+    EpistemicAction,
     Reinterpretation,
     Adaptation,
     ConstitutiveWarning,
@@ -28,8 +29,9 @@ enum class EventKind : uint8_t {
         case EventKind::Interpretation: return "INTERPRETATION";
         case EventKind::Perturbation: return "PERTURBATION";
         case EventKind::Judgment: return "JUDGMENT";
-        case EventKind::EpistemicAction: return "EPISTEMIC_ACTION";
+        case EventKind::ActionIntended: return "ACTION_INTENDED";
         case EventKind::ActionExecution: return "ACTION_EXECUTION";
+        case EventKind::EpistemicAction: return "EPISTEMIC_ACTION";
         case EventKind::Reinterpretation: return "REINTERPRETATION";
         case EventKind::Adaptation: return "ADAPTATION";
         case EventKind::ConstitutiveWarning: return "CONSTITUTIVE_WARNING";

@@ -24,6 +24,19 @@ concept OperationalDomainConcept = requires(T domain, typename T::ActionType act
     { domain.safe_hold_action() } -> std::same_as<typename T::ActionType>;
 };
 
+template <typename T>
+std::string to_domain_string(const T& val) {
+    if constexpr (requires { to_string(val); }) {
+        return std::string(to_string(val));
+    } else if constexpr (requires { std::to_string(val); }) {
+        return std::to_string(val);
+    } else if constexpr (requires { std::format("{}", val); }) {
+        return std::format("{}", val);
+    } else {
+        return "STATE_VALUE";
+    }
+}
+
 template <typename ActionT>
 struct DecisionOutcome {
     ActionT executed_action{};
@@ -66,6 +79,8 @@ public:
         ActionType proposed_action,
         const realization::StepContext& context = realization::StepContext{}
     ) {
+        std::string pre_state_str = to_domain_string(domain_.current_state());
+
         // 1. Submit step through ENTE constitutive pipeline (REC -> RCC -> Verifier -> Assurance)
         auto step_res = ente_.step_with_context(time, observations, context);
 
@@ -84,6 +99,14 @@ public:
             domain_.apply_safety_directive(assurance::SafetyDirective::SafeHold);
             outcome.executed_action = domain_.safe_hold_action();
             outcome.is_safe_hold = true;
+            std::string post_state_str = to_domain_string(domain_.current_state());
+            (void)ente_.record_action_execution(
+                time,
+                to_domain_string(outcome.executed_action),
+                "SAFE_HOLD",
+                pre_state_str,
+                post_state_str
+            );
             return outcome;
         }
 
@@ -91,6 +114,14 @@ public:
         domain_.apply_action(proposed_action);
         outcome.executed_action = proposed_action;
         outcome.is_safe_hold = false;
+        std::string post_state_str = to_domain_string(domain_.current_state());
+        (void)ente_.record_action_execution(
+            time,
+            to_domain_string(outcome.executed_action),
+            "SUCCESS",
+            pre_state_str,
+            post_state_str
+        );
         return outcome;
     }
 

@@ -84,6 +84,15 @@ public:
         const StepContext& context
     );
 
+    // Record factual physical execution result into the REC (M2 Transactional 2-Phase Governance)
+    [[nodiscard]] std::expected<void, core::EnteError> record_action_execution(
+        core::LogicalTime time,
+        std::string_view action_executed,
+        std::string_view execution_status,
+        std::string_view pre_state,
+        std::string_view post_state
+    );
+
     [[nodiscard]] constitution::VerificationReport verify() const noexcept;
 
     [[nodiscard]] const identity::IdentityState& identity() const noexcept { return genesis_service_.state(); }

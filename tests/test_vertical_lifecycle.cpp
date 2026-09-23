@@ -110,9 +110,11 @@ int main() {
         attestation::IndependentAttestationVerifier attestation_verifier;
 
         // Construct Attestation Evidence for active hardware substrate
-        std::string evidence_payload = std::format("{}:{}:{}",
+        std::string nonce = "nonce-test-vertical-0";
+        std::string evidence_payload = std::format("{}:{}:{}:{}",
             "secure-enclave-beta",
             constitution_digest.value,
+            nonce,
             10
         );
         core::Digest attestation_sig = core::HashUtil::combine(
@@ -131,12 +133,20 @@ int main() {
             },
             .configuration_digest = constitution_digest,
             .measured_at = 10,
+            .nonce = nonce,
             .attestation_signature = attestation_sig
         };
 
         auto attestation_result = attestation_verifier.evaluate(evidence, constitution_digest);
         assert(attestation_result.verdict == attestation::AppraisalVerdict::TrustworthyVerified);
         assert(attestation_result.satisfies_constitutional_floor);
+
+        // Adversarial Replay / Missing Signature test:
+        attestation::AttestationEvidence unsigned_evidence = evidence;
+        unsigned_evidence.attestation_signature = core::Digest();
+        auto unauth_res = attestation_verifier.evaluate(unsigned_evidence, constitution_digest);
+        assert(unauth_res.verdict == attestation::AppraisalVerdict::StructurallyAcceptable);
+        assert(!unauth_res.satisfies_constitutional_floor); // Must NOT satisfy floor without signature!
 
         std::cout << "[9] Full Constitutional Invariant Verification (C1..C14)...\n";
         auto rep = process_b.verify();

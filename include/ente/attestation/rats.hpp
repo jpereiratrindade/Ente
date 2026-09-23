@@ -19,6 +19,7 @@ struct AttestationEvidence {
     std::vector<SoftwareMeasurement> measurements;
     core::Digest configuration_digest;
     core::LogicalTime measured_at{0};
+    std::string nonce{"nonce-0"}; // Freshness challenge against replay attacks
     core::Digest attestation_signature;
 };
 

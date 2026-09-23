@@ -1,11 +1,13 @@
 # ENTE-0 — Developer & Domain Integration Guide
-**Versão: v0.1.0 | Padrão: C++26 | Status: Normative Reference**
+**Versão: v0.2.0 | Padrão: C++23 (Compatível C++26) | Status: Normative Reference**
 
 ---
 
 ## 1. Visão Geral
 
-O **ENTE-0** atua como uma camada de **governança ontológica e epistêmica** desacoplada da lógica operacional de domínio. Em vez de impor herança ou acoplamento a classes base proprietárias, o ENTE utiliza **Concepts do C++26** (`OperationalDomainConcept`) para certificar que qualquer sistema ou agente possa ter suas ações mediadas por invariantes constitutivos formais (C1..C14) e pelo mecanismo de Reconsideração Contínua de Contexto (RCC).
+O **ENTE-0** atua como uma camada de **governança ontológica, epistêmica e transacional** desacoplada da lógica operacional de domínio. Em vez de impor herança ou acoplamento a classes base proprietárias, o ENTE utiliza **Concepts do C++23/C++26** (`OperationalDomainConcept`) para certificar que qualquer sistema ou agente possa ter suas decisões e execuções mediadas por um ciclo transacional de duas fases, invariantes constitutivos formais (C1..C14) e pelo mecanismo de Reconsideração Contínua de Contexto (RCC).
+
+Para uma análise formal dos limites de segurança, premissas de confiança e o que é garantido vs simulado, consulte o [Modelo de Ameaças & Matriz de Garantias](file:///home/jpereiratrindade/dev/cpp/Ente/docs/THREAT_MODEL.md).
 
 ```text
 ┌───────────────────────────────────────────────────────────────┐
@@ -24,16 +26,17 @@ O **ENTE-0** atua como uma camada de **governança ontológica e epistêmica** d
 │  │  2. Ledger Causal REC (C4, C10, C11, C12)               │  │
 │  │  3. Reconsideração Contínua RCC (C5, C6, C7, C8)        │  │
 │  │  4. Verificador de Invariantes C1..C14 (C13, C14)       │  │
-│  │  5. Runtime Assurance & SafeHold Directives             │  │
+│  │  5. Transação: ActionIntended -> ActionExecution        │  │
 │  └─────────────────────────────────────────────────────────┘  │
 └──────────────────────────────┬────────────────────────────────┘
                                │
-                   [Diretiva de Ação Certificada]
-                  (Ação Nominal  OU  SafeHold)
+                    [Diretiva de Ação Certificada]
+                   (Ação Nominal  OU  SafeHold)
                                │
                                ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                   ATUADORES / CONTROLADORES                   │
+│          (Executa ação física e devolve resultado factual)    │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -41,7 +44,7 @@ O **ENTE-0** atua como uma camada de **governança ontológica e epistêmica** d
 
 ## 2. O Concept `OperationalDomainConcept`
 
-Para que um tipo de domínio possa ser governado pelo ENTE, ele deve satisfazer o concept C++26 [`ente::domain::OperationalDomainConcept`](file:///home/jpereiratrindade/dev/cpp/Ente/include/ente/domain/generic_agent.hpp):
+Para que um tipo de domínio possa ser governado pelo ENTE, ele deve satisfazer o concept C++23/C++26 [`ente::domain::OperationalDomainConcept`](file:///home/jpereiratrindade/dev/cpp/Ente/include/ente/domain/generic_agent.hpp):
 
 ```cpp
 #include <ente/domain/generic_agent.hpp>

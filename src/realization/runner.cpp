@@ -227,12 +227,13 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
             instance.domain_.suspend_action();
         }
 
-        if (ev.payload_content.starts_with("RUNTIME_ASSURANCE:SAFE_HOLD") ||
-            ev.payload_content.starts_with("RUNTIME_ASSURANCE:EMERGENCY_STOP") ||
-            ev.payload_content.starts_with("ACTION:SUSPEND_ACTION")) {
+        if (ev.payload_content.find("SAFE_HOLD") != std::string::npos ||
+            ev.payload_content.find("EMERGENCY_STOP") != std::string::npos ||
+            ev.payload_content.find("SUSPEND_ACTION") != std::string::npos) {
             instance.domain_.suspend_action();
-        } else if (ev.payload_content.starts_with("RUNTIME_ASSURANCE:ALLOW_ACTION") ||
-                   ev.payload_content.starts_with("ACTION:RESUME_ACTION") ||
+        } else if (ev.payload_content.find("ALLOW_ACTION") != std::string::npos ||
+                   ev.payload_content.find("RESUME_ACTION") != std::string::npos ||
+                   ev.payload_content.find("STATUS=SUCCESS") != std::string::npos ||
                    ev.kind == history::EventKind::CoherenceRestored) {
             instance.domain_.resume_action(SyntheticDomain::Action::MoveForward);
             if (instance.current_interpretation_.has_value()) {
@@ -400,14 +401,14 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             break;
     }
 
-    // Record Runtime Assurance directive in REC
+    // Record Runtime Assurance intention/directive in REC
     auto ra_event = rec_.create_event(
-        history::EventKind::ActionExecution,
+        history::EventKind::ActionIntended,
         id,
         time,
         {rec_.head().id},
         obs_evidence_ids,
-        std::format("RUNTIME_ASSURANCE:{}:{}", assurance::to_string(safety_directive), rcc::to_string(reassess.epistemic_action)),
+        std::format("ACTION_INTENDED:DIRECTIVE={}:EPISTEMIC_ACTION={}", assurance::to_string(safety_directive), rcc::to_string(reassess.epistemic_action)),
         current_auth_id,
         current_epoch_id
     );
@@ -436,6 +437,41 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
     };
 
     return trace;
+}
+
+std::expected<void, core::EnteError> EnteRealization::record_action_execution(
+    core::LogicalTime time,
+    std::string_view action_executed,
+    std::string_view execution_status,
+    std::string_view pre_state,
+    std::string_view post_state
+) {
+    if (!genesis_service_.has_genesis()) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+
+    const auto& id = identity().id;
+    std::string current_auth_id = authority_.empty() ? "auth-root" : std::string(authority_.active_epoch().authorized_authority.view());
+    std::string current_epoch_id = authority_.empty() ? "epoch-0" : std::string(authority_.active_epoch().epoch_id.view());
+
+    std::vector<core::EventId> preds;
+    if (!rec_.empty()) {
+        preds.push_back(rec_.head().id);
+    }
+
+    auto exec_event = rec_.create_event(
+        history::EventKind::ActionExecution,
+        id,
+        time,
+        std::move(preds),
+        {},
+        std::format("ACTION_EXECUTION:STATUS={}:ACTION={}:PRE_STATE={}:POST_STATE={}",
+            execution_status, action_executed, pre_state, post_state),
+        current_auth_id,
+        current_epoch_id
+    );
+
+    return rec_.append(std::move(exec_event));
 }
 
 constitution::VerificationReport EnteRealization::verify() const noexcept {

@@ -42,6 +42,9 @@ std::expected<AuthorityEpoch, core::EnteError> AuthorityLineage::transition_epoc
     if (new_auth.empty()) {
         return std::unexpected(core::EnteError::IdentityMismatch);
     }
+    if (time < epochs_.back().activation_time) {
+        return std::unexpected(core::EnteError::InvalidLogicalTime);
+    }
 
     // Retire previous epoch
     epochs_.back().status = EpochStatus::Retired;

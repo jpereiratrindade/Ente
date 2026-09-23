@@ -71,7 +71,9 @@ enum class EnteError : uint8_t {
     InsufficientEvidence,
     UnknownStateEncountered,
     InvalidPredecessor,
-    DuplicateEventId
+    DuplicateEventId,
+    InvalidLogicalTime,
+    InvalidSignature
 };
 
 [[nodiscard]] constexpr std::string_view to_string(EnteError err) noexcept {
@@ -87,6 +89,8 @@ enum class EnteError : uint8_t {
         case EnteError::UnknownStateEncountered: return "UnknownStateEncountered";
         case EnteError::InvalidPredecessor: return "InvalidPredecessor";
         case EnteError::DuplicateEventId: return "DuplicateEventId";
+        case EnteError::InvalidLogicalTime: return "InvalidLogicalTime";
+        case EnteError::InvalidSignature: return "InvalidSignature";
     }
     return "UnknownError";
 }
