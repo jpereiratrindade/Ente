@@ -1,4 +1,4 @@
-name: C++23 ENTE-0 Verification CI
+name: ENTE-1 Verification CI
 
 on:
   push:

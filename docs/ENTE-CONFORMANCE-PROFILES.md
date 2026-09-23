@@ -2,7 +2,7 @@
 
 **Documento:** `ENTE-CONFORMANCE-001`  
 **Status:** Normative Specification  
-**Perfil consolidado:** `ENTE-1 VERIFIED LOCAL CORE`
+**Perfil consolidado:** `ENTE-1 LOCAL CORE — SEMANTICALLY VERIFIED CANDIDATE`
 
 ## 1. Regra de maturidade
 
@@ -83,9 +83,9 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 6. **Explicit commit point:** erro anterior ao `rename` não avança REC nem índice em memória; erro de sincronização posterior ao `rename` é estado de commit incerto, nunca rollback presumido.
 7. **Observatory surface boundary:** no perfil local, o Observatory é classificado como superfície demonstrativa/pedagógica; qualquer auditoria factual deve consultar diretamente o REC exportado.
 
-## 5. Matriz de Aceite Concluída: `ENTE-1 VERIFIED LOCAL CORE`
+## 5. Matriz de Aceite Concluída: `ENTE-1 LOCAL CORE`
 
-O programa de **Semantic Integrity Closure** concluiu formalmente os Acceptance Gates:
+O programa de **Semantic Integrity Closure** concluiu os Acceptance Gates no escopo declarado:
 
 | Gate | Propriedade | Estado |
 |---|---|---|
@@ -95,9 +95,10 @@ O programa de **Semantic Integrity Closure** concluiu formalmente os Acceptance 
 | **G3 — Evidence-Based Constitution** | C1–C10, C12 e C14 comprovam proveniência factual e encadeamento causal sem parsing textual | `VERIFIED` |
 | **G4 — Authenticated Authority** | Delegação Ed25519 pela chave da época anterior, janela temporal e rejeição de replays | `VERIFIED` |
 | **G5 — Supported Toolchain & Packaging** | Suíte completa (22/22) na matriz GCC 14 / Clang 18 libc++ e teste real de consumidor CMake instalado | `VERIFIED` |
-| **G6 — Declared-Substrate Durability** | Morte abrupta (`_exit`), torn writes e barreiras POSIX em Linux Btrfs (`docs/ENTE-SUBSTRATE-DURABILITY-G6-REPORT.md`) | `VERIFIED` *(Substrato Declarado)* |
+| **G6 — POSIX Substrate Durability** | Morte abrupta (`_exit`), detecção de torn writes e barreiras POSIX em Linux Btrfs (`docs/ENTE-SUBSTRATE-DURABILITY-G6-REPORT.md`) | `VERIFIED` *(Substrato Declarado)* |
+| **Physical Power-Loss Test** | Corte elétrico físico em hardware e armazenamento real | `PENDING PHYSICAL TEST` *(Fora do escopo POSIX local)* |
 
-Todos os gates foram consolidados mediante o quinteto:
+Todos os gates locais foram consolidados mediante o quinteto:
 ```text
 especificação + teste positivo + teste de falsificação/negativo + teste de recovery + escopo documentado
 ```

@@ -1,9 +1,9 @@
-# ENTE-0 — Primeira Realização em C++23 / C++26
+# ENTE-1 — Realização do Núcleo Factual e Constitutivo em C++23 / C++26
 
-> **Status: `ENTE-1 VERIFIED LOCAL CORE` (10/10 no perfil ENTE-LOCAL)**
+> **Status: `ENTE-1 LOCAL CORE — SEMANTICALLY VERIFIED CANDIDATE`**
 > *"Sempre pronto. Sempre incompleto."*
 
-Este repositório contém **ENTE-0 / ENTE-1**, a primeira realização demonstrando em testes determinísticos e ensaios de substrato os compromissos ontológicos, epistêmicos e transacionais da categoria constitutiva **ENTE** em C++23 (compatível com C++26).
+Este repositório contém a realização de referência demonstrando em testes determinísticos controlados os compromissos ontológicos, epistêmicos e transacionais da categoria constitutiva **ENTE** em C++23 (compatível com C++26).
 
 Para a análise formal dos limites de segurança, premissas de confiança e o que é garantido vs simulado, consulte o documento normativo:
 📖 **[Modelo de Ameaças & Matriz de Garantias (THREAT_MODEL.md)](docs/THREAT_MODEL.md)**
@@ -36,10 +36,10 @@ Para a análise formal dos limites de segurança, premissas de confiança e o qu
 - **C8 (UNKNOWN_REPRESENTABILITY)**: `UNKNOWN` é um estado epistêmico de primeira classe (nunca coagido silenciosamente).
 - **C9 (GENESIS_ANCHOR)**: Gênese única, irrevogável e ancorada por digest criptográfico.
 - **C10 (TEMPORAL_INTEGRITY)**: Encadeamento temporal e grafo causal RIT no ledger (REC).
-- **C11 (LINEAGE_SINGULARITY)**: Linhagem singular não bifurcada *(Mono-nó: localmente único)*.
+- **C11 (LINEAGE_SINGULARITY)**: Linhagem singular não bifurcada *(Normativo geral; NOT_APPLICABLE em mono-nó)*.
 - **C12 (HISTORY_RECOVERABILITY)**: Reconstrução histórica da trajetória a partir da Gênese (HRE).
-- **C13 (CONSTITUTIVE_FINALITY_SAFETY)**: Garantia de ramo único e integridade de finalidade local.
-- **C14 (CONSTITUTIVE_AUTHORITY_CONTINUITY)**: Linhagem contínua e ininterrupta de épocas de autoridade legítima.
+- **C13 (CONSTITUTIVE_FINALITY_SAFETY)**: Garantia de ramo único e finalidade local *(Normativo geral; NOT_APPLICABLE em mono-nó)*.
+- **C14 (CONSTITUTIVE_AUTHORITY_CONTINUITY)**: Linhagem contínua e ininterrupta de épocas de autoridade legítima autenticada por Ed25519.
 
 ---
 
@@ -131,4 +131,4 @@ cmake --install build --prefix /usr/local
 
 ## 5. Licença
 
-Este projeto é software livre licenciado sob os termos da **GNU General Public License v3.0 (GPLv3)**. Veja o arquivo [`LICENSE`](file:///home/jpereiratrindade/dev/cpp/Ente/LICENSE) para os termos completos.
+Este projeto é software livre licenciado sob os termos da **GNU General Public License v3.0 (GPLv3)**. Veja o arquivo [`LICENSE`](LICENSE) para os termos completos.

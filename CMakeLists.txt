@@ -51,6 +51,11 @@ target_include_directories(ente_core PUBLIC
 target_compile_features(ente_core PUBLIC cxx_std_23)
 target_link_libraries(ente_core PUBLIC OpenSSL::Crypto)
 
+if(ENABLE_SANITIZERS)
+    target_compile_options(ente_core INTERFACE -fsanitize=address -fno-omit-frame-pointer)
+    target_link_options(ente_core INTERFACE -fsanitize=address)
+endif()
+
 # Enable testing
 enable_testing()
 
