@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <iomanip>
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 
 int main() {
     std::cout << "======================================================================\n";
@@ -73,11 +73,11 @@ int main() {
     std::cout << "  - Unjustified Dose Titration Rate: " << (double)ente_unjustified / 2.0 * 100.0 << "% (0/2 overdoses)\n";
     std::cout << "  - Unnecessary Hold Rate:           " << (double)ente_unnecessary / 3.0 * 100.0 << "%\n\n";
 
-    assert(baseline_unjustified == 2);
-    assert(ente_unjustified == 0);
-    assert(ente_unnecessary == 0);
+    ENTE_TEST_ASSERT(baseline_unjustified == 2);
+    ENTE_TEST_ASSERT(ente_unjustified == 0);
+    ENTE_TEST_ASSERT(ente_unnecessary == 0);
 
-    assert(ente_pump.ente().history().verify_integrity());
+    ENTE_TEST_ASSERT(ente_pump.ente().history().verify_integrity());
     std::cout << ">>> CLINICAL INFUSION LAB COMPLETED WITH 100% EPISTEMIC SAFETY <<<\n";
     return 0;
 }

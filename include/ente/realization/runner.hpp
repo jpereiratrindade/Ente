@@ -4,6 +4,7 @@
 #include "ente/identity/material_anchor.hpp"
 #include "ente/authority/authority.hpp"
 #include "ente/history/rec.hpp"
+#include "ente/history/payloads.hpp"
 #include "ente/epistemic/interpretation.hpp"
 #include "ente/judgment/fixture.hpp"
 #include "ente/rcc/reassessment.hpp"
@@ -13,6 +14,7 @@
 #include <vector>
 #include <memory>
 #include <expected>
+#include <unordered_map>
 
 #include "ente/core/prng.hpp"
 
@@ -36,6 +38,12 @@ struct DecisionTrace {
     core::EventId rec_head_id;
     core::LogicalTime time{0};
     bool action_suspended{false};
+};
+
+struct ActionTransactionState {
+    history::ActionTransactionPayload payload;
+    core::EventId last_event_id;
+    core::LogicalTime updated_at{0};
 };
 
 struct ScenarioStep {
@@ -72,6 +80,11 @@ public:
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_history(history::RecoverableHistory history);
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_file(std::string_view filepath);
 
+    // Enables synchronous snapshot journaling. Once enabled, every factual
+    // action phase is fsync'ed before the transition is returned to the caller.
+    [[nodiscard]] std::expected<void, core::EnteError> enable_durable_journal(std::string_view filepath);
+    [[nodiscard]] bool has_durable_journal() const noexcept { return journal_path_.has_value(); }
+
     [[nodiscard]] std::expected<DecisionTrace, core::EnteError> step(
         core::LogicalTime time,
         const std::vector<epistemic::Observation>& observations,
@@ -84,21 +97,52 @@ public:
         const StepContext& context
     );
 
-    // Record factual physical execution result into the REC (M2 Transactional 2-Phase Governance)
-    [[nodiscard]] std::expected<void, core::EnteError> record_action_execution(
+    // ENTE-1 factual action lifecycle. Authorization is recorded by step_with_context;
+    // these methods distinguish intent, dispatch, executor acknowledgement and observed effect.
+    [[nodiscard]] std::expected<ActionTransactionState, core::EnteError> prepare_action(
         core::LogicalTime time,
-        std::string_view action_executed,
-        std::string_view execution_status,
-        std::string_view pre_state,
-        std::string_view post_state
+        std::string_view proposed_action,
+        std::string_view effective_action,
+        assurance::SafetyDirective directive,
+        std::string_view pre_state
     );
+
+    [[nodiscard]] std::expected<ActionTransactionState, core::EnteError> dispatch_action(
+        const core::ActionTransactionId& action_id,
+        core::LogicalTime time
+    );
+
+    [[nodiscard]] std::expected<ActionTransactionState, core::EnteError> acknowledge_action(
+        const core::ActionTransactionId& action_id,
+        core::LogicalTime time,
+        std::string_view executed_action,
+        bool succeeded,
+        std::string_view post_state,
+        std::string_view executor_id = "domain-executor"
+    );
+
+    [[nodiscard]] std::expected<ActionTransactionState, core::EnteError> observe_action_effect(
+        const core::ActionTransactionId& action_id,
+        core::LogicalTime time,
+        bool confirmed,
+        std::string_view effect,
+        std::string_view post_state,
+        std::vector<epistemic::Observation> effect_observations = {}
+    );
+
+    [[nodiscard]] std::optional<ActionTransactionState> action_transaction(
+        const core::ActionTransactionId& action_id
+    ) const noexcept;
 
     [[nodiscard]] constitution::VerificationReport verify() const noexcept;
 
     [[nodiscard]] const identity::IdentityState& identity() const noexcept { return genesis_service_.state(); }
     [[nodiscard]] const identity::MaterialBindingRegistry& material_bindings() const noexcept { return bindings_; }
     [[nodiscard]] const history::RecoverableHistory& history() const noexcept { return rec_; }
-    [[nodiscard]] history::RecoverableHistory& history_mut() noexcept { return rec_; } // for tamper test
+    [[nodiscard]] history::RecoverableHistory& history_mut() noexcept {
+        history_requires_full_audit_ = true;
+        return rec_;
+    } // privileged/testing access invalidates incremental trust
     [[nodiscard]] const std::optional<epistemic::Interpretation>& current_interpretation() const noexcept { return current_interpretation_; }
     [[nodiscard]] const SyntheticDomain& domain() const noexcept { return domain_; }
     [[nodiscard]] const authority::AuthorityLineage& authority_lineage() const noexcept { return authority_; }
@@ -107,10 +151,21 @@ public:
     void adopt_interpretation(epistemic::Interpretation new_interp);
 
 private:
+    [[nodiscard]] std::expected<ActionTransactionState, core::EnteError> append_action_phase(
+        history::ActionTransactionPayload payload,
+        history::EventKind kind,
+        core::LogicalTime time,
+        std::vector<core::EvidenceId> evidence_refs
+    );
+
+    [[nodiscard]] std::expected<void, core::EnteError> rebuild_action_transactions_from_history();
+
     identity::GenesisService genesis_service_;
     identity::MaterialBindingRegistry bindings_;
     authority::AuthorityLineage authority_;
     history::RecoverableHistory rec_;
+    std::unordered_map<std::string, ActionTransactionState> action_transactions_;
+    std::optional<std::string> journal_path_;
     core::EventScopedPRNG prng_;
     std::optional<epistemic::Interpretation> current_interpretation_;
     rcc::ContextReassessment rcc_;
@@ -119,6 +174,7 @@ private:
     constitution::ConstitutionVerifier verifier_;
     SyntheticDomain domain_;
     mutable constitution::ConstitutiveStatus constitutive_status_{constitution::ConstitutiveStatus::Valid};
+    mutable bool history_requires_full_audit_{false};
 };
 
 class ScenarioRunner {

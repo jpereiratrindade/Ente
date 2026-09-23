@@ -8,8 +8,51 @@
 #include <vector>
 #include <optional>
 #include <format>
+#include <expected>
 
 namespace ente::history {
+
+enum class ActionPhase : uint8_t {
+    Prepared,
+    Authorized,
+    Dispatched,
+    Acknowledged,
+    EffectUnconfirmed,
+    Confirmed,
+    Failed,
+    RecoveryRequired
+};
+
+[[nodiscard]] constexpr std::string_view to_string(ActionPhase phase) noexcept {
+    switch (phase) {
+        case ActionPhase::Prepared: return "PREPARED";
+        case ActionPhase::Authorized: return "AUTHORIZED";
+        case ActionPhase::Dispatched: return "DISPATCHED";
+        case ActionPhase::Acknowledged: return "ACKNOWLEDGED";
+        case ActionPhase::EffectUnconfirmed: return "EFFECT_UNCONFIRMED";
+        case ActionPhase::Confirmed: return "CONFIRMED";
+        case ActionPhase::Failed: return "FAILED";
+        case ActionPhase::RecoveryRequired: return "RECOVERY_REQUIRED";
+    }
+    return "INVALID_ACTION_PHASE";
+}
+
+struct ActionTransactionPayload {
+    core::ActionTransactionId action_id;
+    ActionPhase phase{ActionPhase::Prepared};
+    std::string proposed_action;
+    std::string effective_action;
+    assurance::SafetyDirective safety_directive{assurance::SafetyDirective::SafeHold};
+    std::string pre_state;
+    std::string post_state;
+    std::string detail;
+};
+
+// Length-prefixed canonical representation. Values may contain arbitrary delimiters.
+[[nodiscard]] std::string serialize_action_transaction(const ActionTransactionPayload& payload);
+[[nodiscard]] std::expected<ActionTransactionPayload, core::EnteError> parse_action_transaction(
+    std::string_view serialized
+) noexcept;
 
 struct GenesisPayload {
     core::IdentityId identity;

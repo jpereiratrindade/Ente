@@ -2,10 +2,48 @@
 #include "ente/core/hash.hpp"
 #include <format>
 #include <sstream>
+#include <unordered_set>
 
 namespace ente::realization {
 
 namespace {
+
+bool valid_action_transition(
+    std::optional<history::ActionPhase> current,
+    history::ActionPhase next
+) noexcept {
+    if (!current.has_value()) {
+        return next == history::ActionPhase::Prepared || next == history::ActionPhase::Authorized;
+    }
+
+    switch (*current) {
+        case history::ActionPhase::Authorized:
+            return next == history::ActionPhase::Prepared ||
+                   next == history::ActionPhase::Failed ||
+                   next == history::ActionPhase::RecoveryRequired;
+        case history::ActionPhase::Prepared:
+            return next == history::ActionPhase::Dispatched ||
+                   next == history::ActionPhase::Failed ||
+                   next == history::ActionPhase::RecoveryRequired;
+        case history::ActionPhase::Dispatched:
+            return next == history::ActionPhase::Acknowledged ||
+                   next == history::ActionPhase::Failed ||
+                   next == history::ActionPhase::RecoveryRequired;
+        case history::ActionPhase::Acknowledged:
+            return next == history::ActionPhase::EffectUnconfirmed ||
+                   next == history::ActionPhase::Confirmed ||
+                   next == history::ActionPhase::RecoveryRequired;
+        case history::ActionPhase::EffectUnconfirmed:
+            return next == history::ActionPhase::Confirmed ||
+                   next == history::ActionPhase::Failed ||
+                   next == history::ActionPhase::RecoveryRequired;
+        case history::ActionPhase::Confirmed:
+        case history::ActionPhase::Failed:
+        case history::ActionPhase::RecoveryRequired:
+            return false;
+    }
+    return false;
+}
 
 identity::SubstrateType parse_substrate_type_str(std::string_view s) noexcept {
     if (s == "TPM_PROTECTED_DEVICE") return identity::SubstrateType::TpmProtectedDevice;
@@ -242,6 +280,42 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_hi
         }
     }
 
+    // 6. Rebuild factual action transactions. Any transaction that crossed the
+    // dispatch boundary without a confirmed effect is explicitly recoverable,
+    // never silently promoted to a confirmed state.
+    auto tx_rebuild = instance.rebuild_action_transactions_from_history();
+    if (!tx_rebuild.has_value()) {
+        return std::unexpected(tx_rebuild.error());
+    }
+
+    std::vector<core::ActionTransactionId> interrupted;
+    for (const auto& [id_value, state] : instance.action_transactions_) {
+        const auto phase = state.payload.phase;
+        if (phase == history::ActionPhase::Authorized ||
+            phase == history::ActionPhase::Prepared ||
+            phase == history::ActionPhase::Dispatched ||
+            phase == history::ActionPhase::Acknowledged ||
+            phase == history::ActionPhase::EffectUnconfirmed) {
+            interrupted.emplace_back(id_value);
+        }
+    }
+
+    for (const auto& action_id : interrupted) {
+        auto state = instance.action_transactions_.at(action_id.value).payload;
+        state.phase = history::ActionPhase::RecoveryRequired;
+        state.detail = "PROCESS_RESTART_BEFORE_CONFIRMED_EFFECT";
+        auto recovery_event = instance.append_action_phase(
+            std::move(state),
+            history::EventKind::ConstitutiveWarning,
+            instance.rec_.head().logical_time,
+            {}
+        );
+        if (!recovery_event.has_value()) {
+            return std::unexpected(recovery_event.error());
+        }
+        instance.domain_.suspend_action();
+    }
+
     return instance;
 }
 
@@ -250,7 +324,31 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_fi
     if (!rec_res.has_value()) {
         return std::unexpected(rec_res.error());
     }
-    return recover_from_history(std::move(*rec_res));
+    auto recovered = recover_from_history(std::move(*rec_res));
+    if (!recovered.has_value()) {
+        return std::unexpected(recovered.error());
+    }
+    recovered->journal_path_ = std::string(filepath);
+    auto persisted = recovered->rec_.save_to_file(filepath);
+    if (!persisted.has_value()) {
+        return std::unexpected(persisted.error());
+    }
+    return recovered;
+}
+
+std::expected<void, core::EnteError> EnteRealization::enable_durable_journal(std::string_view filepath) {
+    if (!genesis_service_.has_genesis() || rec_.empty()) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+    if (filepath.empty()) {
+        return std::unexpected(core::EnteError::HistoryGap);
+    }
+    auto persisted = rec_.save_to_file(filepath);
+    if (!persisted.has_value()) {
+        return std::unexpected(persisted.error());
+    }
+    journal_path_ = std::string(filepath);
+    return {};
 }
 
 void EnteRealization::adopt_interpretation(epistemic::Interpretation new_interp) {
@@ -289,6 +387,15 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
     if (constitutive_status_ == constitution::ConstitutiveStatus::Violated) {
         domain_.suspend_action();
         return std::unexpected(core::EnteError::ConstitutiveViolation);
+    }
+
+    if (history_requires_full_audit_) {
+        if (!rec_.verify_integrity()) {
+            constitutive_status_ = constitution::ConstitutiveStatus::Violated;
+            domain_.suspend_action();
+            return std::unexpected(core::EnteError::ConstitutiveViolation);
+        }
+        history_requires_full_audit_ = false;
     }
 
     const auto& id = identity().id;
@@ -343,6 +450,12 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
 
     // 3. Continuous Context Reassessment (RCC)
     auto reassess = rcc_.evaluate(*current_interpretation_, observations, *judgment_);
+
+    if (!rec_.verify_tail()) {
+        constitutive_status_ = constitution::ConstitutiveStatus::Violated;
+        domain_.suspend_action();
+        return std::unexpected(core::EnteError::ConstitutiveViolation);
+    }
 
     // 4. Constitutional Invariant Verification (Pre-Assurance - O(1) Incremental)
     auto verification = verifier_.verify_step(
@@ -401,14 +514,15 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
             break;
     }
 
-    // Record Runtime Assurance intention/directive in REC
+    // Record the authorization decision. This is deliberately distinct from
+    // ActionIntended: authorized != dispatched != executed != effect observed.
     auto ra_event = rec_.create_event(
-        history::EventKind::ActionIntended,
+        history::EventKind::ActionAuthorized,
         id,
         time,
         {rec_.head().id},
         obs_evidence_ids,
-        std::format("ACTION_INTENDED:DIRECTIVE={}:EPISTEMIC_ACTION={}", assurance::to_string(safety_directive), rcc::to_string(reassess.epistemic_action)),
+        std::format("ACTION_AUTHORIZED:DIRECTIVE={}:EPISTEMIC_ACTION={}", assurance::to_string(safety_directive), rcc::to_string(reassess.epistemic_action)),
         current_auth_id,
         current_epoch_id
     );
@@ -439,15 +553,23 @@ std::expected<DecisionTrace, core::EnteError> EnteRealization::step_with_context
     return trace;
 }
 
-std::expected<void, core::EnteError> EnteRealization::record_action_execution(
+std::expected<ActionTransactionState, core::EnteError> EnteRealization::append_action_phase(
+    history::ActionTransactionPayload payload,
+    history::EventKind kind,
     core::LogicalTime time,
-    std::string_view action_executed,
-    std::string_view execution_status,
-    std::string_view pre_state,
-    std::string_view post_state
+    std::vector<core::EvidenceId> evidence_refs
 ) {
     if (!genesis_service_.has_genesis()) {
         return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+
+    const auto key = payload.action_id.value;
+    const auto existing = action_transactions_.find(key);
+    const std::optional<history::ActionPhase> current = existing == action_transactions_.end()
+        ? std::nullopt
+        : std::optional<history::ActionPhase>(existing->second.payload.phase);
+    if (!valid_action_transition(current, payload.phase)) {
+        return std::unexpected(core::EnteError::InvalidActionTransition);
     }
 
     const auto& id = identity().id;
@@ -459,19 +581,228 @@ std::expected<void, core::EnteError> EnteRealization::record_action_execution(
         preds.push_back(rec_.head().id);
     }
 
-    auto exec_event = rec_.create_event(
-        history::EventKind::ActionExecution,
+    auto event = rec_.create_event(
+        kind,
         id,
         time,
         std::move(preds),
-        {},
-        std::format("ACTION_EXECUTION:STATUS={}:ACTION={}:PRE_STATE={}:POST_STATE={}",
-            execution_status, action_executed, pre_state, post_state),
+        std::move(evidence_refs),
+        history::serialize_action_transaction(payload),
         current_auth_id,
         current_epoch_id
     );
 
-    return rec_.append(std::move(exec_event));
+    const auto event_id = event.id;
+    auto append_result = rec_.append(std::move(event));
+    if (!append_result.has_value()) {
+        return std::unexpected(append_result.error());
+    }
+
+    ActionTransactionState state{
+        .payload = std::move(payload),
+        .last_event_id = event_id,
+        .updated_at = time
+    };
+    action_transactions_.insert_or_assign(key, state);
+
+    if (journal_path_.has_value()) {
+        auto persisted = rec_.save_to_file(*journal_path_);
+        if (!persisted.has_value()) {
+            return std::unexpected(persisted.error());
+        }
+    }
+    return state;
+}
+
+std::expected<ActionTransactionState, core::EnteError> EnteRealization::prepare_action(
+    core::LogicalTime time,
+    std::string_view proposed_action,
+    std::string_view effective_action,
+    assurance::SafetyDirective directive,
+    std::string_view pre_state
+) {
+    const core::ActionTransactionId action_id(
+        std::format("A{:08d}-T{}", rec_.size(), time)
+    );
+    if (action_transactions_.contains(action_id.value)) {
+        return std::unexpected(core::EnteError::DuplicateActionTransaction);
+    }
+
+    history::ActionTransactionPayload payload{
+        .action_id = action_id,
+        .phase = history::ActionPhase::Authorized,
+        .proposed_action = std::string(proposed_action),
+        .effective_action = std::string(effective_action),
+        .safety_directive = directive,
+        .pre_state = std::string(pre_state),
+        .post_state = {},
+        .detail = rec_.empty() ? "NO_POLICY_AUTHORIZATION_EVENT" : std::format("POLICY_AUTHORIZATION_EVENT={}", rec_.head().id.view())
+    };
+    auto authorized = append_action_phase(
+        payload,
+        history::EventKind::ActionAuthorized,
+        time,
+        {}
+    );
+    if (!authorized.has_value()) {
+        return std::unexpected(authorized.error());
+    }
+
+    payload.phase = history::ActionPhase::Prepared;
+    payload.detail = std::format("ACTION_SPECIFIC_AUTHORIZATION_EVENT={}", authorized->last_event_id.view());
+    return append_action_phase(
+        std::move(payload),
+        history::EventKind::ActionIntended,
+        time,
+        {}
+    );
+}
+
+std::expected<ActionTransactionState, core::EnteError> EnteRealization::dispatch_action(
+    const core::ActionTransactionId& action_id,
+    core::LogicalTime time
+) {
+    auto it = action_transactions_.find(action_id.value);
+    if (it == action_transactions_.end()) {
+        return std::unexpected(core::EnteError::ActionTransactionNotFound);
+    }
+    auto payload = it->second.payload;
+    payload.phase = history::ActionPhase::Dispatched;
+    payload.detail = "COMMAND_DISPATCHED_TO_DOMAIN_EXECUTOR";
+    return append_action_phase(std::move(payload), history::EventKind::ActionExecution, time, {});
+}
+
+std::expected<ActionTransactionState, core::EnteError> EnteRealization::acknowledge_action(
+    const core::ActionTransactionId& action_id,
+    core::LogicalTime time,
+    std::string_view executed_action,
+    bool succeeded,
+    std::string_view post_state,
+    std::string_view executor_id
+) {
+    auto it = action_transactions_.find(action_id.value);
+    if (it == action_transactions_.end()) {
+        return std::unexpected(core::EnteError::ActionTransactionNotFound);
+    }
+    auto payload = it->second.payload;
+    payload.phase = succeeded ? history::ActionPhase::Acknowledged : history::ActionPhase::Failed;
+    payload.effective_action = std::string(executed_action);
+    payload.post_state = std::string(post_state);
+    payload.detail = std::format("EXECUTOR={}:STATUS={}", executor_id, succeeded ? "ACK_SUCCESS" : "EXECUTION_FAILED");
+    return append_action_phase(std::move(payload), history::EventKind::ActionExecutionAck, time, {});
+}
+
+std::expected<ActionTransactionState, core::EnteError> EnteRealization::observe_action_effect(
+    const core::ActionTransactionId& action_id,
+    core::LogicalTime time,
+    bool confirmed,
+    std::string_view effect,
+    std::string_view post_state,
+    std::vector<epistemic::Observation> effect_observations
+) {
+    auto it = action_transactions_.find(action_id.value);
+    if (it == action_transactions_.end()) {
+        return std::unexpected(core::EnteError::ActionTransactionNotFound);
+    }
+    const auto next_phase = confirmed
+        ? history::ActionPhase::Confirmed
+        : history::ActionPhase::EffectUnconfirmed;
+    if (!valid_action_transition(it->second.payload.phase, next_phase)) {
+        return std::unexpected(core::EnteError::InvalidActionTransition);
+    }
+    if (confirmed && effect_observations.empty()) {
+        return std::unexpected(core::EnteError::InsufficientEvidence);
+    }
+
+    std::vector<core::EvidenceId> evidence_refs;
+    evidence_refs.reserve(effect_observations.size());
+    std::unordered_set<std::string> batch_evidence_ids;
+    const auto& identity_id = identity().id;
+    const std::string authority_id = authority_.empty()
+        ? "auth-root"
+        : std::string(authority_.active_epoch().authorized_authority.view());
+    const std::string epoch_id = authority_.empty()
+        ? "epoch-0"
+        : std::string(authority_.active_epoch().epoch_id.view());
+
+    for (const auto& observation : effect_observations) {
+        if (observation.id.empty() ||
+            observation.observed_at > time ||
+            (observation.status != epistemic::EpistemicStatus::Observed &&
+             observation.status != epistemic::EpistemicStatus::Derived) ||
+            !batch_evidence_ids.insert(observation.id.value).second) {
+            return std::unexpected(core::EnteError::InsufficientEvidence);
+        }
+        evidence_refs.push_back(observation.id);
+    }
+
+    for (const auto& observation : effect_observations) {
+        auto observation_event = rec_.create_event(
+            history::EventKind::Observation,
+            identity_id,
+            time,
+            {rec_.head().id},
+            {observation.id},
+            std::format(
+                "EFFECT_OBSERVE:{}:{}:{}:{}",
+                observation.source,
+                observation.subject,
+                observation.value,
+                epistemic::to_string(observation.status)
+            ),
+            authority_id,
+            epoch_id
+        );
+        auto appended = rec_.append(std::move(observation_event));
+        if (!appended.has_value()) {
+            return std::unexpected(appended.error());
+        }
+    }
+    auto payload = it->second.payload;
+    payload.phase = next_phase;
+    payload.post_state = std::string(post_state);
+    payload.detail = std::string(effect);
+    return append_action_phase(
+        std::move(payload),
+        history::EventKind::EffectObservation,
+        time,
+        std::move(evidence_refs)
+    );
+}
+
+std::optional<ActionTransactionState> EnteRealization::action_transaction(
+    const core::ActionTransactionId& action_id
+) const noexcept {
+    auto it = action_transactions_.find(action_id.value);
+    if (it == action_transactions_.end()) return std::nullopt;
+    return it->second;
+}
+
+std::expected<void, core::EnteError> EnteRealization::rebuild_action_transactions_from_history() {
+    action_transactions_.clear();
+    for (const auto& event : rec_.events()) {
+        if (!event.payload_content.starts_with("ENTE_ACTION_TX_V1")) continue;
+
+        auto parsed = history::parse_action_transaction(event.payload_content);
+        if (!parsed.has_value()) {
+            return std::unexpected(parsed.error());
+        }
+
+        auto it = action_transactions_.find(parsed->action_id.value);
+        const std::optional<history::ActionPhase> current = it == action_transactions_.end()
+            ? std::nullopt
+            : std::optional<history::ActionPhase>(it->second.payload.phase);
+        if (!valid_action_transition(current, parsed->phase)) {
+            return std::unexpected(core::EnteError::InvalidActionTransition);
+        }
+
+        action_transactions_.insert_or_assign(parsed->action_id.value, ActionTransactionState{
+            .payload = *parsed,
+            .last_event_id = event.id,
+            .updated_at = event.logical_time
+        });
+    }
+    return {};
 }
 
 constitution::VerificationReport EnteRealization::verify() const noexcept {
@@ -483,6 +814,9 @@ constitution::VerificationReport EnteRealization::verify() const noexcept {
         std::cref(authority_)
     );
     constitutive_status_ = rep.status;
+    if (rep.status != constitution::ConstitutiveStatus::Violated) {
+        history_requires_full_audit_ = false;
+    }
     if (rep.status == constitution::ConstitutiveStatus::Violated) {
         const_cast<SyntheticDomain&>(domain_).suspend_action();
     }

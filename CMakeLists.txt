@@ -30,6 +30,7 @@ add_library(ente_core
     src/identity/material_anchor.cpp
     src/authority/authority.cpp
     src/history/rec.cpp
+    src/history/payloads.cpp
     src/epistemic/interpretation.cpp
     src/judgment/fixture.cpp
     src/rcc/reassessment.cpp
@@ -43,6 +44,8 @@ target_include_directories(ente_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+target_compile_features(ente_core PUBLIC cxx_std_23)
 
 # Enable testing
 enable_testing()
@@ -74,6 +77,10 @@ add_test(NAME test_rec COMMAND test_rec)
 add_executable(test_persistence_restart tests/test_persistence_restart.cpp)
 target_link_libraries(test_persistence_restart PRIVATE ente_core)
 add_test(NAME test_persistence_restart COMMAND test_persistence_restart)
+
+add_executable(test_action_transaction tests/test_action_transaction.cpp)
+target_link_libraries(test_action_transaction PRIVATE ente_core)
+add_test(NAME test_action_transaction COMMAND test_action_transaction)
 
 add_executable(test_rcc tests/test_rcc.cpp)
 target_link_libraries(test_rcc PRIVATE ente_core)
@@ -170,7 +177,4 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/EnteConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Ente
 )
-
-
-
 

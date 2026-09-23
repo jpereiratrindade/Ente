@@ -21,6 +21,9 @@ public:
     // Validate the complete hash-chain and temporal integrity (C10, C12)
     [[nodiscard]] bool verify_integrity() const noexcept;
 
+    // Validate the current HEAD and its direct predecessor in O(1).
+    [[nodiscard]] bool verify_tail() const noexcept;
+
     [[nodiscard]] size_t size() const noexcept { return events_.size(); }
     [[nodiscard]] bool empty() const noexcept { return events_.empty(); }
     [[nodiscard]] const std::vector<HistoryEvent>& events() const noexcept { return events_; }

@@ -12,6 +12,19 @@
 
 namespace ente::constitution {
 
+enum class ConformanceProfile : uint8_t {
+    EnteLocal,
+    EnteDistributed
+};
+
+[[nodiscard]] constexpr std::string_view to_string(ConformanceProfile profile) noexcept {
+    switch (profile) {
+        case ConformanceProfile::EnteLocal: return "ENTE_LOCAL";
+        case ConformanceProfile::EnteDistributed: return "ENTE_DISTRIBUTED";
+    }
+    return "UNKNOWN_PROFILE";
+}
+
 enum class ConstitutiveStatus : uint8_t {
     Valid,
     Weakened,
@@ -38,6 +51,7 @@ struct InvariantReport {
 struct VerificationReport {
     ConstitutiveStatus status;
     std::vector<InvariantReport> invariant_reports;
+    ConformanceProfile profile{ConformanceProfile::EnteLocal};
 
     [[nodiscard]] bool is_valid() const noexcept {
         return status == ConstitutiveStatus::Valid;
@@ -46,7 +60,11 @@ struct VerificationReport {
 
 class ConstitutionVerifier {
 public:
-    ConstitutionVerifier() = default;
+    explicit ConstitutionVerifier(
+        ConformanceProfile profile = ConformanceProfile::EnteLocal
+    ) noexcept : profile_(profile) {}
+
+    [[nodiscard]] ConformanceProfile profile() const noexcept { return profile_; }
 
     // Full historical audit (O(H)) from Genesis to HEAD
     [[nodiscard]] VerificationReport verify(
@@ -65,6 +83,9 @@ public:
         const std::optional<epistemic::Interpretation>& current_interpretation,
         std::optional<std::reference_wrapper<const authority::AuthorityLineage>> authority_lineage = std::nullopt
     ) const noexcept;
+
+private:
+    ConformanceProfile profile_{ConformanceProfile::EnteLocal};
 };
 
 } // namespace ente::constitution

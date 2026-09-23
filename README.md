@@ -1,6 +1,6 @@
 # ENTE-0 — Primeira Realização em C++23 / C++26
 
-> **Status: `IMPLEMENTED_CANDIDATE`**  
+> **Status: `ENTE-0 IMPLEMENTED_CANDIDATE` · `ENTE-1 LOCAL FACTUAL CORE` em desenvolvimento**
 > *"Sempre pronto. Sempre incompleto."*
 
 Este repositório contém **ENTE-0**, a primeira realização mínima candidata capaz de demonstrar em testes determinísticos controlados os compromissos ontológicos, epistêmicos e transacionais da categoria constitutiva **ENTE** em C++23 (compatível com C++26).
@@ -56,7 +56,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-### Executar a Suíte de Verificação Completa (17 Testes)
+### Executar a Suíte de Verificação Completa (18 Testes)
 ```bash
 ctest --test-dir build --output-on-failure --verbose
 ```
@@ -81,7 +81,7 @@ cmake --install build --prefix /usr/local
 ./build/test_chaos_invariants
 ```
 
-### Executar o Benchmark Estocástico de Monte Carlo (Pareto Dominance)
+### Executar a Simulação Estocástica Controlada de Monte Carlo
 ```bash
 ./build/test_monte_carlo_benchmark
 ```
@@ -112,6 +112,7 @@ cmake --install build --prefix /usr/local
 ## 4. Documentação e Casos de Uso
 
 - **Manual de Desenvolvimento & Integração de Domínios**: [`docs/DEVELOPER_GUIDE.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/DEVELOPER_GUIDE.md) *(Novo!)*
+- **Perfis de Conformidade e Claims Verificáveis**: [`docs/ENTE-CONFORMANCE-PROFILES.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-CONFORMANCE-PROFILES.md)
 - **Website Interativo & Manifesto**: [`docs/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/index.html) *(Deploy no GitHub Pages)*
 - **Aplicação Visual ENTE Observatory (Field Station)**: [`examples/field-station/web/index.html`](file:///home/jpereiratrindade/dev/cpp/Ente/examples/field-station/web/index.html)
 - **Relatório Formal de Demonstração & Falsificação**: [`docs/ENTE-FORMAL-REPORT-v0.1.0.md`](file:///home/jpereiratrindade/dev/cpp/Ente/docs/ENTE-FORMAL-REPORT-v0.1.0.md)
@@ -129,6 +130,3 @@ cmake --install build --prefix /usr/local
 ## 5. Licença
 
 Este projeto é software livre licenciado sob os termos da **GNU General Public License v3.0 (GPLv3)**. Veja o arquivo [`LICENSE`](file:///home/jpereiratrindade/dev/cpp/Ente/LICENSE) para os termos completos.
-
-
-

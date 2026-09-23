@@ -7,7 +7,7 @@
 
 Este documento estabelece o relatório formal de verificação empírica, estrutural e de integridade do **ENTE-0**, a primeira realização mínima candidata em C++26 da categoria ontológica **ENTE** (*Entidade com Núcleo Télico e Epistêmico*).
 
-O sistema foi submetido a uma suíte de 17 baterias de testes automatizados compreendendo:
+O sistema foi submetido a uma suíte de 18 baterias de testes automatizados compreendendo:
 1. **Verificação de Invariantes Constitutivos (C1..C14)**;
 2. **Benchmark Estocástico de Monte Carlo (5.000 ensaios)** contra 4 arquiteturas de referência (baselines);
 3. **Teste de Longevidade & Escalabilidade Constitutiva (10.000 acontecimentos contínuos / 20.002 eventos REC)**;
@@ -15,7 +15,7 @@ O sistema foi submetido a uma suíte de 17 baterias de testes automatizados comp
 5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat, Bomba de Infusão Crítica em UTI e Estação de Campo / Irrigação);
 6. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
 
-**Status de Verificação:** 17/17 baterias de testes executáveis aprovadas com zero vazamentos de memória (0 bytes vazados).
+**Status de Verificação:** 18/18 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
 
 ---
 
@@ -44,17 +44,15 @@ Onde:
 
 Avaliando 5.000 transições estocásticas geradas por gerador pseudo-aleatório criptográfico endereçado por evento (`EventScopedPRNG`):
 
-| Arquitetura de Agente | Ação Injustificada (Falso Positivo) | Paralisia Indevida (Falso Negativo) | Significância Estatística ($p$-value) |
-| :--- | :---: | :---: | :---: |
-| **B0 (Static Rules Engine)** | **100.00%** (1.174 / 1.174) | **0.00%** (0 / 3.826) | $p < 10^{-12}$ |
-| **B1 (Confidence Threshold 70%)** | **60.22%** (707 / 1.174) | **0.00%** (0 / 3.826) | $p < 10^{-12}$ |
-| **B2 (Paralyzed Fallback)** | **0.00%** (0 / 1.174) | **13.36%** (511 / 3.826) | $p < 10^{-12}$ |
-| **B3 (Lagging Heuristic Filter)** | **60.22%** (707 / 1.174) | **0.00%** (0 / 3.826) | $p < 10^{-12}$ |
-| **ENTE-0 (Constitutive RCC)** | **0.00%** (0 / 1.174) | **0.00%** (0 / 3.826) | **Ótimo de Pareto no Conjunto Testado** |
+| Arquitetura de Agente | Ação Injustificada | Paralisia Indevida |
+| :--- | :---: | :---: |
+| **B0 (Static Rules Engine)** | **100.00%** (1.174 / 1.174) | **0.00%** (0 / 3.826) |
+| **B1 (Confidence Threshold 70%)** | **60.22%** (707 / 1.174) | **0.00%** (0 / 3.826) |
+| **B2 (Paralyzed Fallback)** | **0.00%** (0 / 1.174) | **13.36%** (511 / 3.826) |
+| **B3 (Lagging Heuristic Filter)** | **60.22%** (707 / 1.174) | **0.00%** (0 / 3.826) |
+| **ENTE-0 (Constitutive RCC)** | **0.00%** (0 / 1.174) | **0.00%** (0 / 3.826) |
 
-$$\text{Fisher's Exact Test: } p < 1.0 \times 10^{-12} \quad (\text{Redução Absoluta de Ações Injustificadas na Amostra: } 100\%)$$
-
-*Nota Metodológica:* Os resultados referem-se estritamente ao espaço amostral gerado no ensaio controlado. Nenhuma ação injustificada foi observada no conjunto experimental de 1.174 casos com anomalias epistêmicas.
+*Nota Metodológica:* Este é um teste funcional estocástico dentro de um espaço sintético controlado, com baselines definidos no próprio protocolo. Ele demonstra o comportamento esperado das políticas implementadas; não constitui comparação independente nem sustenta, isoladamente, superioridade estatística no mundo real. Nenhum p-value é reivindicado sem protocolo estatístico e cálculo reproduzível próprios.
 
 ---
 
@@ -99,11 +97,11 @@ Demonstrado com conformidade integral em três domínios sintéticos de bancada 
 
 ## 6. Verificação de Memória com AddressSanitizer & LeakSanitizer
 
-Toda a suíte de 17 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
+Toda a suíte de 18 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
 * **Memory Leaks**: `0 bytes` vazados.
 * **Buffer Overflows**: `0 ocorrências`.
 * **Use-After-Free / Double-Free**: `0 ocorrências`.
-* **Resultado**: `17/17 Passed` sob instrumentação total.
+* **Resultado**: `18/18 Passed` sob instrumentação total no ambiente avaliado.
 
 ---
 
@@ -119,9 +117,8 @@ Arquitetura          Realização em C++26 (Monoprocesso Local)
 Vertical Integrada   Ponta a ponta com Cold Recovery e RATS
 Caso Aplicado        Generalizado via Template (Veicular + UTI Sintéticos)
 Hardening            Resistente a 6 Vetores de Caos + ASan/LSan
-Evidência Empírica   Monte Carlo 5.000 ensaios (p < 10^-12)
+Evidência Empírica   Simulação controlada de 5.000 transições
 Licença              GNU General Public License v3.0 (GPLv3)
 ```
 
 **Limites de Escopo:** O ENTE-0 é uma realização monoprocesso local em C++26. Consenso distribuído, singularidade de linhagem multi-nó e finalidade constitutiva em redes permanecem tópicos de pesquisa futura fora do escopo atual.
-

@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 
 int main() {
     std::cout << "==========================================================\n";
@@ -26,17 +26,17 @@ int main() {
     }
 
     // Asserções do Tour A
-    assert(tour_a.size() == 5);
-    assert(tour_a[0].event_type == "GENESIS");
-    assert(tour_a[1].valve_action == "OPEN_VALVE");  // Nominal: irrigando
-    assert(tour_a[2].valve_action == "CLOSE_VALVE"); // Conflito: SafeHold
-    assert(tour_a[3].event_type == "DIAGNOSTIC_OBSERVATION"); // Sonda C + Self-Test
-    assert(tour_a[4].valve_action == "OPEN_VALVE");  // Reinterpretação: Irrigação retomada
+    ENTE_TEST_ASSERT(tour_a.size() == 5);
+    ENTE_TEST_ASSERT(tour_a[0].event_type == "GENESIS");
+    ENTE_TEST_ASSERT(tour_a[1].valve_action == "OPEN_VALVE");  // Nominal: irrigando
+    ENTE_TEST_ASSERT(tour_a[2].valve_action == "CLOSE_VALVE"); // Conflito: SafeHold
+    ENTE_TEST_ASSERT(tour_a[3].event_type == "DIAGNOSTIC_OBSERVATION"); // Sonda C + Self-Test
+    ENTE_TEST_ASSERT(tour_a[4].valve_action == "OPEN_VALVE");  // Reinterpretação: Irrigação retomada
 
     // Validação do branch alternativo de Tour A (Solo Úmido)
     auto tour_a_wet = fieldstation::FieldStationScenarios::run_tour_a_resolution(false);
-    assert(tour_a_wet[4].valve_action == "CLOSE_VALVE"); // Solo Úmido: Válvula Fechada com Justificativa
-    assert(tour_a_wet[4].interpretation == "IRRIGATION_NOT_NEEDED");
+    ENTE_TEST_ASSERT(tour_a_wet[4].valve_action == "CLOSE_VALVE"); // Solo Úmido: Válvula Fechada com Justificativa
+    ENTE_TEST_ASSERT(tour_a_wet[4].interpretation == "IRRIGATION_NOT_NEEDED");
 
     // ---------------------------------------------------------
     // TOUR B: Ontological Continuity Cycle
@@ -53,12 +53,12 @@ int main() {
     }
 
     // Asserções do Tour B
-    assert(tour_b.size() == 4);
-    assert(tour_b[0].event_type == "GENESIS");
-    assert(tour_b[1].assurance_directive == "SAFE_HOLD");
-    assert(tour_b[2].hardware_id == "RP-B104"); // Migração RIT
-    assert(tour_b[3].event_type == "COLD_RECOVERY");
-    assert(tour_b[3].assurance_directive == "SAFE_HOLD"); // SafeHold preservado após crash
+    ENTE_TEST_ASSERT(tour_b.size() == 4);
+    ENTE_TEST_ASSERT(tour_b[0].event_type == "GENESIS");
+    ENTE_TEST_ASSERT(tour_b[1].assurance_directive == "SAFE_HOLD");
+    ENTE_TEST_ASSERT(tour_b[2].hardware_id == "RP-B104"); // Migração RIT
+    ENTE_TEST_ASSERT(tour_b[3].event_type == "COLD_RECOVERY");
+    ENTE_TEST_ASSERT(tour_b[3].assurance_directive == "SAFE_HOLD"); // SafeHold preservado após crash
 
     // Exportar JSON combinado para a UI web e docs
     std::string json_data = fieldstation::FieldStationScenarios::to_json(tour_a, tour_a_wet, tour_b);

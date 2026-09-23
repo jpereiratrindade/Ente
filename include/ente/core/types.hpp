@@ -42,6 +42,9 @@ using InterpretationId = StrongId<InterpretationTag>;
 struct StateTag {};
 using StateId = StrongId<StateTag>;
 
+struct ActionTransactionTag {};
+using ActionTransactionId = StrongId<ActionTransactionTag>;
+
 // Logical time for ordering without hardware clock dependencies
 using LogicalTime = uint64_t;
 
@@ -73,7 +76,10 @@ enum class EnteError : uint8_t {
     InvalidPredecessor,
     DuplicateEventId,
     InvalidLogicalTime,
-    InvalidSignature
+    InvalidSignature,
+    DuplicateActionTransaction,
+    ActionTransactionNotFound,
+    InvalidActionTransition
 };
 
 [[nodiscard]] constexpr std::string_view to_string(EnteError err) noexcept {
@@ -91,6 +97,9 @@ enum class EnteError : uint8_t {
         case EnteError::DuplicateEventId: return "DuplicateEventId";
         case EnteError::InvalidLogicalTime: return "InvalidLogicalTime";
         case EnteError::InvalidSignature: return "InvalidSignature";
+        case EnteError::DuplicateActionTransaction: return "DuplicateActionTransaction";
+        case EnteError::ActionTransactionNotFound: return "ActionTransactionNotFound";
+        case EnteError::InvalidActionTransition: return "InvalidActionTransition";
     }
     return "UnknownError";
 }
@@ -117,4 +126,3 @@ struct std::formatter<ente::core::EnteError, char> : std::formatter<std::string_
         return std::formatter<std::string_view, char>::format(ente::core::to_string(err), ctx);
     }
 };
-

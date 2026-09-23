@@ -20,7 +20,7 @@ enum class StepNature : uint8_t {
 int main() {
     std::cout << "======================================================================\n";
     std::cout << "  ENTE-0 MONTE CARLO BENCHMARK (5,000 STOCHASTIC TRANSITIONS)         \n";
-    std::cout << "  Continuous Trajectory Statistical Falsification & Baseline Pareto   \n";
+    std::cout << "  Controlled Policy Simulation & Synthetic Baseline Comparison       \n";
     std::cout << "======================================================================\n\n";
 
     constexpr size_t TOTAL_ITERATIONS = 5000;
@@ -206,13 +206,12 @@ int main() {
     // Export CSV dataset for scientific reporting
     std::ofstream csv_out("monte_carlo_metrics.csv", std::ios::out | std::ios::trunc);
     if (csv_out.is_open()) {
-        csv_out << "Agent,TotalTransitions,SafeCases,HazardousCases,UnjustifiedCount,UnjustifiedRate,UnnecessaryCount,UnnecessaryRate,PValueHazardReduction\n";
+        csv_out << "Agent,TotalTransitions,SafeCases,HazardousCases,UnjustifiedCount,UnjustifiedRate,UnnecessaryCount,UnnecessaryRate\n";
         auto write_row = [&](std::string_view name, size_t uj, size_t un) {
             double uj_pct = (double)uj / (double)total_hazardous_cases;
             double un_pct = (double)un / (double)total_safe_cases;
-            std::string p_val = (uj > 0) ? "< 1.0e-12" : "1.000";
             csv_out << name << "," << TOTAL_ITERATIONS << "," << total_safe_cases << "," << total_hazardous_cases << ","
-                    << uj << "," << uj_pct << "," << un << "," << un_pct << "," << p_val << "\n";
+                    << uj << "," << uj_pct << "," << un << "," << un_pct << "\n";
         };
         write_row("B0_StaticRules", b0_unjustified, b0_unnecessary);
         write_row("B1_ConfidenceThreshold", b1_unjustified, b1_unnecessary);
@@ -220,14 +219,13 @@ int main() {
         write_row("B3_LaggingHeuristics", b3_unjustified, b3_unnecessary);
         write_row("ENTE-0_ConstitutiveRCC", ente_unjustified, ente_unnecessary);
         csv_out.close();
-        std::cout << "[Report] Statistical benchmark exported to 'monte_carlo_metrics.csv' (p < 1.0e-12).\n";
+        std::cout << "[Report] Controlled-simulation metrics exported to 'monte_carlo_metrics.csv'.\n";
     }
 
     // Cryptographic history integrity
     ENTE_TEST_ASSERT(ente.history().verify_integrity());
     ENTE_TEST_ASSERT(ente.history().size() > TOTAL_ITERATIONS);
 
-    std::cout << ">>> PARETO-DOMINANCE OBSERVED OVER 5,000 EVALUATED STOCHASTIC TRANSITIONS <<<\n";
+    std::cout << ">>> EXPECTED POLICY BEHAVIOR OBSERVED OVER 5,000 CONTROLLED TRANSITIONS <<<\n";
     return 0;
 }
-

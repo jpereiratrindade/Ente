@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include <iomanip>
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 #include <filesystem>
 
 namespace {
@@ -88,13 +88,13 @@ void run_sequential_benchmark() {
     std::cout << "  - Unnecessary Suspension Rate:   " << (double)ente_unnecessary_susp / 3.0 * 100.0 << "% (" << ente_unnecessary_susp << "/3 clear cases)\n\n";
 
     // Structural Verification
-    assert(baseline_unjustified_cont == 4); // S2, S3, S4, S6 failed on unmediated baseline
-    assert(ente_unjustified_cont == 0);     // ENTE safely held on all 4 hazardous cases
-    assert(ente_unnecessary_susp == 0);     // ENTE did not freeze unnecessarily on S0, S1, S5
+    ENTE_TEST_ASSERT(baseline_unjustified_cont == 4); // S2, S3, S4, S6 failed on unmediated baseline
+    ENTE_TEST_ASSERT(ente_unjustified_cont == 0);     // ENTE safely held on all 4 hazardous cases
+    ENTE_TEST_ASSERT(ente_unnecessary_susp == 0);     // ENTE did not freeze unnecessarily on S0, S1, S5
 
     // Epistemic and REC Invariants Verification
-    assert(ente_agent.ente().history().verify_integrity());
-    assert(ente_agent.ente().history().size() > 0);
+    ENTE_TEST_ASSERT(ente_agent.ente().history().verify_integrity());
+    ENTE_TEST_ASSERT(ente_agent.ente().history().size() > 0);
 
     // Assert Causal Trace in REC: verify presence of Perturbation and SafeHold events
     bool found_rcc_perturbation = false;
@@ -107,13 +107,13 @@ void run_sequential_benchmark() {
             found_safe_hold_directive = true;
         }
     }
-    assert(found_rcc_perturbation);
-    assert(found_safe_hold_directive);
+    ENTE_TEST_ASSERT(found_rcc_perturbation);
+    ENTE_TEST_ASSERT(found_safe_hold_directive);
 
     // Constitutional Verifier
     auto report = ente_agent.ente().verify();
-    assert(report.status != ente::constitution::ConstitutiveStatus::Violated);
-    assert(report.status == ente::constitution::ConstitutiveStatus::Weakened); // Actively holding under S6 anomaly
+    ENTE_TEST_ASSERT(report.status != ente::constitution::ConstitutiveStatus::Violated);
+    ENTE_TEST_ASSERT(report.status == ente::constitution::ConstitutiveStatus::Weakened); // Actively holding under S6 anomaly
 }
 
 void run_bootstrap_anomaly_test() {
@@ -126,9 +126,9 @@ void run_bootstrap_anomaly_test() {
     const auto& s2 = scenarios[2]; // Near-Wheel Anomaly
 
     auto action = fresh_agent.process(s2.observations, 1);
-    assert(action == caselab::VehicleAction::Hold);
-    assert(fresh_agent.state() == caselab::VehicleState::Holding);
-    assert(fresh_agent.ente().domain().is_action_suspended());
+    ENTE_TEST_ASSERT(action == caselab::VehicleAction::Hold);
+    ENTE_TEST_ASSERT(fresh_agent.state() == caselab::VehicleState::Holding);
+    ENTE_TEST_ASSERT(fresh_agent.ente().domain().is_action_suspended());
 
     // Verify that first step evaluated RCC directly without bypassing security
     bool found_safe_hold = false;
@@ -137,7 +137,7 @@ void run_bootstrap_anomaly_test() {
             found_safe_hold = true;
         }
     }
-    assert(found_safe_hold);
+    ENTE_TEST_ASSERT(found_safe_hold);
     std::cout << "[PASS] Anomaly at Genesis immediately enforced SafeHold without bootstrap bypass.\n\n";
 }
 
@@ -156,25 +156,25 @@ void run_cold_recovery_under_anomaly_test() {
         caselab::AgentWithEnte agent_a(id);
         auto scenarios = caselab::get_kitkat_lab_scenarios();
         auto a1 = agent_a.process(scenarios[0].observations, 10); // S0
-        assert(a1 == caselab::VehicleAction::Depart);
+        ENTE_TEST_ASSERT(a1 == caselab::VehicleAction::Depart);
 
         auto a2 = agent_a.process(scenarios[2].observations, 20); // S2 anomaly
-        assert(a2 == caselab::VehicleAction::Hold);
-        assert(agent_a.ente().domain().is_action_suspended());
+        ENTE_TEST_ASSERT(a2 == caselab::VehicleAction::Hold);
+        ENTE_TEST_ASSERT(agent_a.ente().domain().is_action_suspended());
 
         auto save_res = agent_a.ente().history().save_to_file(test_file);
-        assert(save_res.has_value());
+        ENTE_TEST_ASSERT(save_res.has_value());
     }
 
     {
         // Process B recovers cold from disk
         auto recover_res = ente::realization::EnteRealization::recover_from_file(test_file);
-        assert(recover_res.has_value());
+        ENTE_TEST_ASSERT(recover_res.has_value());
         auto& recovered_ente = *recover_res;
 
         // Must still be suspended!
-        assert(recovered_ente.domain().is_action_suspended());
-        assert(recovered_ente.history().verify_integrity());
+        ENTE_TEST_ASSERT(recovered_ente.domain().is_action_suspended());
+        ENTE_TEST_ASSERT(recovered_ente.history().verify_integrity());
     }
 
     std::filesystem::remove(test_file);
@@ -194,15 +194,15 @@ void run_order_invariance_test() {
         const auto& sc = scenarios[static_cast<size_t>(i)];
         auto act = reverse_agent.process(sc.observations, t);
         bool expected_hold = sc.should_hold_for_safety;
-        assert(act == (expected_hold ? caselab::VehicleAction::Hold : caselab::VehicleAction::Depart));
+        ENTE_TEST_ASSERT(act == (expected_hold ? caselab::VehicleAction::Hold : caselab::VehicleAction::Depart));
     }
 
-    assert(reverse_agent.ente().history().verify_integrity());
+    ENTE_TEST_ASSERT(reverse_agent.ente().history().verify_integrity());
     std::cout << "[PASS] Reverse order scenario sequence evaluated correctly.\n\n";
 }
 
 void run_cold_recovery_post_resolution_test() {
-    std::cout << "--- 5. Cold Recovery Post-Resolution Test (Hold -> Resume -> Restart) ---\n";
+    std::cout << "--- 5. Cold Recovery with Unconfirmed Physical Effect Test ---\n";
 
     std::string test_file = "caselab_resumed_recovery.rec";
     if (std::filesystem::exists(test_file)) {
@@ -217,36 +217,38 @@ void run_cold_recovery_post_resolution_test() {
         auto scenarios = caselab::get_kitkat_lab_scenarios();
         
         auto a1 = agent_a.process(scenarios[0].observations, 10); // S0
-        assert(a1 == caselab::VehicleAction::Depart);
+        ENTE_TEST_ASSERT(a1 == caselab::VehicleAction::Depart);
 
         auto a2 = agent_a.process(scenarios[2].observations, 20); // S2 anomaly -> Hold
-        assert(a2 == caselab::VehicleAction::Hold);
-        assert(agent_a.ente().domain().is_action_suspended());
+        ENTE_TEST_ASSERT(a2 == caselab::VehicleAction::Hold);
+        ENTE_TEST_ASSERT(agent_a.ente().domain().is_action_suspended());
 
         auto a3 = agent_a.process(scenarios[5].observations, 30); // S5 resolved evidence -> Depart
-        assert(a3 == caselab::VehicleAction::Depart);
-        assert(!agent_a.ente().domain().is_action_suspended());
+        ENTE_TEST_ASSERT(a3 == caselab::VehicleAction::Depart);
+        ENTE_TEST_ASSERT(!agent_a.ente().domain().is_action_suspended());
 
         auto save_res = agent_a.ente().history().save_to_file(test_file);
-        assert(save_res.has_value());
+        ENTE_TEST_ASSERT(save_res.has_value());
     }
 
     {
         // Process B: Recovers cold from disk after resolution
         auto recover_res = ente::realization::EnteRealization::recover_from_file(test_file);
-        assert(recover_res.has_value());
+        ENTE_TEST_ASSERT(recover_res.has_value());
         auto& recovered_ente = *recover_res;
 
-        // Domain MUST be resumed and interpretation MUST be valid and current!
-        assert(!recovered_ente.domain().is_action_suspended());
-        assert(recovered_ente.current_interpretation().has_value());
-        assert(recovered_ente.current_interpretation()->status == ente::epistemic::InterpretationStatus::Current);
-        assert(recovered_ente.history().verify_integrity());
-        assert(recovered_ente.verify().is_valid());
+        // Departure was acknowledged by the executor but no independent effect
+        // observation was recorded. Recovery must not confuse it with a
+        // confirmed physical state.
+        ENTE_TEST_ASSERT(recovered_ente.domain().is_action_suspended());
+        ENTE_TEST_ASSERT(recovered_ente.current_interpretation().has_value());
+        ENTE_TEST_ASSERT(recovered_ente.current_interpretation()->status == ente::epistemic::InterpretationStatus::Current);
+        ENTE_TEST_ASSERT(recovered_ente.history().verify_integrity());
+        ENTE_TEST_ASSERT(recovered_ente.verify().is_valid());
     }
 
     std::filesystem::remove(test_file);
-    std::cout << "[PASS] Cold recovery accurately reconstructed resumed Depart state and Current interpretation.\n\n";
+    std::cout << "[PASS] Cold recovery preserved interpretation while requiring physical-effect reconfirmation.\n\n";
 }
 
 } // namespace

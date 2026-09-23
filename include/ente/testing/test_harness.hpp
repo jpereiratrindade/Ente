@@ -7,6 +7,8 @@
 #include <source_location>
 #include <cstdlib>
 #include <exception>
+#include <type_traits>
+#include <utility>
 
 namespace ente::testing {
 
@@ -43,7 +45,14 @@ inline void assert_eq_impl(
     std::string_view expected_expr,
     const std::source_location location = std::source_location::current()
 ) {
-    if (!(actual == expected)) {
+    const bool equal = [&] {
+        if constexpr (std::is_integral_v<T> && std::is_integral_v<U>) {
+            return std::cmp_equal(actual, expected);
+        } else {
+            return actual == expected;
+        }
+    }();
+    if (!equal) {
         std::string msg;
         if constexpr (std::formattable<T, char> && std::formattable<U, char>) {
             msg = std::format("Expected {} ({}) == {} ({})", actual_expr, actual, expected_expr, expected);
@@ -63,7 +72,14 @@ inline void assert_ne_impl(
     std::string_view expected_expr,
     const std::source_location location = std::source_location::current()
 ) {
-    if (actual == expected) {
+    const bool equal = [&] {
+        if constexpr (std::is_integral_v<T> && std::is_integral_v<U>) {
+            return std::cmp_equal(actual, expected);
+        } else {
+            return actual == expected;
+        }
+    }();
+    if (equal) {
         fail_test(std::format("{} != {}", actual_expr, expected_expr), "Values were unexpectedly equal", location);
     }
 }

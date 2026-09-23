@@ -28,7 +28,7 @@ Para evitar alegações impossíveis ou presunções de segurança injustificada
 
 | Nível | Classe de Ameaça | Descrição e Vetor de Falha | Mitigação / Garantia no ENTE-0 | Limite de Defesa |
 | :--- | :--- | :--- | :--- | :--- |
-| **T0** | **Falha Acidental** | Bit-flips em RAM, crash de processo, perda súbita de energia durante E/S. | Protocolo de ação recuperável, gravação atômica (`save_to_file`) e fsync. | Totalmente mitigado no REC local. |
+| **T0** | **Falha Acidental** | Bit-flips em RAM, crash de processo, perda súbita de energia durante E/S. | Protocolo de ação recuperável, substituição atômica (`save_to_file`) e fsync em plataformas POSIX. | Parcialmente mitigado; garantias dependem do filesystem, hardware e journal configurado. |
 | **T1** | **Corrupção de Armazenamento** | Truncamento no disco, falha de setor, blocos corrompidos no log histórico. | Detecção de truncamento na inicialização, checksum SHA-256 por evento. | Recuperação segura em `SafeHold`. |
 | **T2** | **Atacante com Acesso Offline ao REC** | Invasor que modifica eventos históricos no arquivo em disco enquanto o processo está inativo. | Hash-chain SHA-256 linear + RIT causal + verificação de integridade C10/C12. | Detecta adulteração; sem chave, não impede recomputação de hashes locais. |
 | **T3** | **Atacante Controla o Processo ENTE** | Código hostil injetado no espaço de endereço de memória do processo ativo. | Ancoragem de integridade de Gênese imutável e verificadores constitutivos externos. | O processo comprometido pode falsificar deliberações se possuir a chave local. |
@@ -73,7 +73,7 @@ Para evitar alegações impossíveis ou presunções de segurança injustificada
 
 ### Ameaça 2: Queda de Energia / Crash de Processo Durante Persistência
 - **Vetor:** Interrupção abrupta da alimentação do nó durante a gravação de uma decisão ou ação.
-- **Defesa:** Ciclo transacional de duas fases (Two-Phase Commit local). Nenhuma ação física é executada antes da gravação da intenção; e a ação executada só é considerada concluída após a confirmação do resultado no log. Logs truncados são detectados na inicialização e o estado é restaurado em `SafeHold`.
+- **Defesa:** Ciclo factual em fases. Quando o journal durável está configurado, a intenção e o dispatch são sincronizados antes do retorno ao executor; a ação só é considerada confirmada após observação de efeito com evidência registrada. Logs truncados são rejeitados e transações interrompidas retornam como `RECOVERY_REQUIRED` em `SafeHold`.
 
 ### Ameaça 3: Adulteração de Histórico por Processo Local (Adulteração de REC)
 - **Vetor:** Um invasor com privilégios locais reescreve eventos históricos no arquivo em disco.
@@ -102,7 +102,7 @@ Para evitar alegações impossíveis ou presunções de segurança injustificada
 | **C1 (Identidade Singular)** | `IMPLEMENTADA` | `EntityId` único imutável validado em todos os eventos | Escopo local do nó. |
 | **C2 (Continuidade Causal)** | `IMPLEMENTADA` | Grafo de transições com validação de estado anterior | Transições inválidas levam a `SafeHold`. |
 | **C3 (Superfície Observacional)** | `IMPLEMENTADA` | Tipagem explícita de entradas sensoriais (`TelemetryFrame`) | Exige registro de proveniência de cada sensor. |
-| **C4 (Proveniência de Ações)** | `IMPLEMENTADA` | `ActionIntended` + `ActionExecuted` com link de contexto | Nenhuma ação física ocorre sem evento auditável. |
+| **C4 (Proveniência de Ações)** | `IMPLEMENTADA` | `ActionAuthorized` + `ActionIntended` + `ActionExecution` + `ActionExecutionAck` + `EffectObservation` | Durabilidade antes do dispatch exige journal configurado. |
 | **C5 (Tipagem Epistêmica)** | `IMPLEMENTADA` | Enum estrito (`Observed`, `Derived`, `Contradictory`, etc.) | Proibida coerção implícita de incerteza. |
 | **C6 (Revisão Epistêmica)** | `IMPLEMENTADA` | Máquina de estados RCC integrada ao ciclo de decisão | Revisão requer evidência discriminante registrada. |
 | **C7 (Avaliação de Coerência)** | `IMPLEMENTADA` | Oráculo de coerência com justificativa gravada no REC | Rejeita inferência desprovida de suporte observacional. |

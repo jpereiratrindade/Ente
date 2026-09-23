@@ -1,6 +1,8 @@
 #include "ente/constitution/verifier.hpp"
 #include "ente/history/rec.hpp"
+#include "ente/history/payloads.hpp"
 #include "ente/core/hash.hpp"
+#include <unordered_set>
 
 namespace ente::constitution {
 
@@ -16,6 +18,7 @@ VerificationReport ConstitutionVerifier::verify(
 
     bool any_violation = false;
     bool any_weakened = false;
+    bool any_unknown = false;
 
     // C1 — Identity
     if (!identity.id.empty() && identity.lifecycle == identity::LifecycleStatus::LifeActive) {
@@ -55,12 +58,44 @@ VerificationReport ConstitutionVerifier::verify(
     // C3 — Observability & C4 — Provenance
     bool provenance_ok = true;
     bool has_valid_observations = false;
+    std::unordered_set<std::string> known_evidence;
     for (const auto& ev : history.events()) {
         if (ev.kind == history::EventKind::Observation) {
             has_valid_observations = true;
+            if (ev.evidence_refs.empty()) {
+                provenance_ok = false;
+                break;
+            }
+            for (const auto& evidence_id : ev.evidence_refs) {
+                if (evidence_id.empty() || !known_evidence.insert(evidence_id.value).second) {
+                    provenance_ok = false;
+                    break;
+                }
+            }
+            if (!provenance_ok) break;
+            continue;
         }
+
+        for (const auto& evidence_id : ev.evidence_refs) {
+            if (!known_evidence.contains(evidence_id.value)) {
+                provenance_ok = false;
+                break;
+            }
+        }
+        if (!provenance_ok) break;
+
         if (ev.kind == history::EventKind::Interpretation || ev.kind == history::EventKind::Reinterpretation) {
             if (ev.evidence_refs.empty() && ev.causal_predecessors.empty()) {
+                provenance_ok = false;
+                break;
+            }
+        }
+
+        if (ev.kind == history::EventKind::EffectObservation &&
+            ev.payload_content.starts_with("ENTE_ACTION_TX_V1")) {
+            auto action_payload = history::parse_action_transaction(ev.payload_content);
+            if (!action_payload.has_value() ||
+                (action_payload->phase == history::ActionPhase::Confirmed && ev.evidence_refs.empty())) {
                 provenance_ok = false;
                 break;
             }
@@ -121,11 +156,14 @@ VerificationReport ConstitutionVerifier::verify(
         reports.push_back({InvariantId::C7_CoherenceEvaluation, InvariantStatus::Satisfied, "Basal state coherent"});
     }
 
-    // C11 — Lineage Singularity: Not Applicable to single-node local realization without external network forks
-    reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::NotApplicable, "Single-process execution; distributed fork protocol not applicable"});
-
-    // C13 — Finality Safety: Not Applicable to single-process local execution (requires BFT consensus network)
-    reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::NotApplicable, "Network fault model and BFT finality not applicable to isolated local node"});
+    if (profile_ == ConformanceProfile::EnteLocal) {
+        reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::NotApplicable, "ENTE_LOCAL profile: distributed fork protocol not applicable"});
+        reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::NotApplicable, "ENTE_LOCAL profile: BFT finality not applicable"});
+    } else {
+        reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::Unknown, "ENTE_DISTRIBUTED requires external fork-safety evidence"});
+        reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::Unknown, "ENTE_DISTRIBUTED requires external finality evidence"});
+        any_unknown = true;
+    }
 
     // C14 — Authority Continuity: Audits that all events belong to legitimate authority epochs
     bool authority_ok = true;
@@ -153,13 +191,16 @@ VerificationReport ConstitutionVerifier::verify(
     ConstitutiveStatus final_status = ConstitutiveStatus::Valid;
     if (any_violation) {
         final_status = ConstitutiveStatus::Violated;
+    } else if (any_unknown) {
+        final_status = ConstitutiveStatus::Suspended;
     } else if (any_weakened) {
         final_status = ConstitutiveStatus::Weakened;
     }
 
     return VerificationReport{
         .status = final_status,
-        .invariant_reports = std::move(reports)
+        .invariant_reports = std::move(reports),
+        .profile = profile_
     };
 }
 
@@ -175,6 +216,7 @@ VerificationReport ConstitutionVerifier::verify_step(
 
     bool any_violation = false;
     bool any_weakened = false;
+    bool any_unknown = false;
 
     // C1 — Identity
     if (!identity.id.empty() && identity.lifecycle == identity::LifecycleStatus::LifeActive) {
@@ -269,9 +311,14 @@ VerificationReport ConstitutionVerifier::verify_step(
         reports.push_back({InvariantId::C7_CoherenceEvaluation, InvariantStatus::Satisfied, "Basal coherent"});
     }
 
-    // C11 / C13 — Distributed invariants out of local node scope
-    reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::NotApplicable, "Single-process"});
-    reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::NotApplicable, "Single-process"});
+    if (profile_ == ConformanceProfile::EnteLocal) {
+        reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::NotApplicable, "ENTE_LOCAL profile"});
+        reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::NotApplicable, "ENTE_LOCAL profile"});
+    } else {
+        reports.push_back({InvariantId::C11_LineageSingularity, InvariantStatus::Unknown, "ENTE_DISTRIBUTED fork safety unverified"});
+        reports.push_back({InvariantId::C13_ConstitutiveFinalitySafety, InvariantStatus::Unknown, "ENTE_DISTRIBUTED finality unverified"});
+        any_unknown = true;
+    }
 
     // C14 — Authority check on latest event
     bool auth_ok = !latest_event.authority_id.empty() && !latest_event.authority_epoch.empty();
@@ -292,13 +339,16 @@ VerificationReport ConstitutionVerifier::verify_step(
     ConstitutiveStatus final_status = ConstitutiveStatus::Valid;
     if (any_violation) {
         final_status = ConstitutiveStatus::Violated;
+    } else if (any_unknown) {
+        final_status = ConstitutiveStatus::Suspended;
     } else if (any_weakened) {
         final_status = ConstitutiveStatus::Weakened;
     }
 
     return VerificationReport{
         .status = final_status,
-        .invariant_reports = std::move(reports)
+        .invariant_reports = std::move(reports),
+        .profile = profile_
     };
 }
 

@@ -8,6 +8,11 @@
 #include <filesystem>
 #include <charconv>
 
+#if defined(__unix__) || defined(__APPLE__)
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+
 namespace ente::history {
 
 std::string RecoverableHistory::compute_event_hash_string(const HistoryEvent& ev) noexcept {
@@ -189,6 +194,25 @@ bool RecoverableHistory::verify_integrity() const noexcept {
     return true;
 }
 
+bool RecoverableHistory::verify_tail() const noexcept {
+    if (events_.empty()) return true;
+
+    const auto& tail = events_.back();
+    const core::Digest expected_previous = events_.size() == 1
+        ? core::Digest()
+        : events_[events_.size() - 2].event_digest;
+    if (tail.previous_event_digest != expected_previous) return false;
+    if (events_.size() > 1 && tail.logical_time < events_[events_.size() - 2].logical_time) return false;
+    if (core::HashUtil::sha256(tail.payload_content) != tail.payload_digest) return false;
+    if (core::HashUtil::sha256(compute_event_hash_string(tail)) != tail.event_digest) return false;
+
+    for (const auto& causal_id : tail.causal_predecessors) {
+        auto it = event_index_.find(causal_id.value);
+        if (it == event_index_.end() || it->second >= events_.size() - 1) return false;
+    }
+    return true;
+}
+
 
 void RecoverableHistory::tamper_event_payload_for_testing(size_t index, std::string_view corrupted_payload) noexcept {
     if (index < events_.size()) {
@@ -233,6 +257,36 @@ std::string unescape_payload(std::string_view esc) {
         }
     }
     return out;
+}
+
+bool sync_path_to_storage(const std::string& path) noexcept {
+#if defined(__unix__) || defined(__APPLE__)
+    const int fd = ::open(path.c_str(), O_RDONLY);
+    if (fd < 0) return false;
+    const bool synced = ::fsync(fd) == 0;
+    const bool closed = ::close(fd) == 0;
+    return synced && closed;
+#else
+    // Standard C++ has no portable fsync primitive. The atomic replacement is
+    // still used, but platform adapters must provide equivalent durability.
+    (void)path;
+    return true;
+#endif
+}
+
+bool sync_parent_directory(const std::string& path) noexcept {
+#if defined(__unix__) || defined(__APPLE__)
+    std::filesystem::path parent = std::filesystem::path(path).parent_path();
+    if (parent.empty()) parent = ".";
+    const int fd = ::open(parent.c_str(), O_RDONLY | O_DIRECTORY);
+    if (fd < 0) return false;
+    const bool synced = ::fsync(fd) == 0;
+    const bool closed = ::close(fd) == 0;
+    return synced && closed;
+#else
+    (void)path;
+    return true;
+#endif
 }
 
 } // namespace
@@ -283,9 +337,21 @@ std::expected<void, core::EnteError> RecoverableHistory::save_to_file(std::strin
             }
         }
 
+        if (!sync_path_to_storage(tmp_path)) {
+            std::error_code cleanup_error;
+            std::filesystem::remove(tmp_path, cleanup_error);
+            return std::unexpected(core::EnteError::HistoryCorrupt);
+        }
+
         std::error_code ec;
         std::filesystem::rename(tmp_path, target_path, ec);
         if (ec) {
+            std::error_code cleanup_error;
+            std::filesystem::remove(tmp_path, cleanup_error);
+            return std::unexpected(core::EnteError::HistoryCorrupt);
+        }
+
+        if (!sync_parent_directory(target_path)) {
             return std::unexpected(core::EnteError::HistoryCorrupt);
         }
 
@@ -312,6 +378,7 @@ std::expected<RecoverableHistory, core::EnteError> RecoverableHistory::load_from
             if (k == "INTERPRETATION") return EventKind::Interpretation;
             if (k == "PERTURBATION") return EventKind::Perturbation;
             if (k == "JUDGMENT") return EventKind::Judgment;
+            if (k == "ACTION_AUTHORIZED") return EventKind::ActionAuthorized;
             if (k == "ACTION_INTENDED") return EventKind::ActionIntended;
             if (k == "ACTION_EXECUTION") return EventKind::ActionExecution;
             if (k == "ACTION_EXECUTION_ACK") return EventKind::ActionExecutionAck;

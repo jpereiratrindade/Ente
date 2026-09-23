@@ -9,7 +9,7 @@
 #include <sstream>
 #include <filesystem>
 #include <fstream>
-#include <cassert>
+#include "ente/testing/test_harness.hpp"
 
 namespace fieldstation {
 
@@ -176,9 +176,9 @@ public:
         );
 
         // Verification of EvidenceRequest generation
-        assert(outcome_conflict.is_safe_hold);
-        assert(outcome_conflict.executed_action == ValveAction::CloseValve);
-        assert(outcome_conflict.trace.evidence_request.has_value());
+        ENTE_TEST_ASSERT(outcome_conflict.is_safe_hold);
+        ENTE_TEST_ASSERT(outcome_conflict.executed_action == ValveAction::CloseValve);
+        ENTE_TEST_ASSERT(outcome_conflict.trace.evidence_request.has_value());
 
         logs.push_back({
             .tour_name = "Tour A · Epistemic Resolution",
@@ -300,8 +300,8 @@ public:
             ctx_resolved
         );
 
-        assert(outcome_resolved.executed_action == proposed);
-        assert(domain.active_action() == proposed);
+        ENTE_TEST_ASSERT(outcome_resolved.executed_action == proposed);
+        ENTE_TEST_ASSERT(domain.active_action() == proposed);
 
         logs.push_back({
             .tour_name = "Tour A · Epistemic Resolution",
@@ -436,7 +436,7 @@ public:
             };
 
             auto mig_res = ente.migrate_hardware(new_anchor, ente::core::LogicalTime(2));
-            assert(mig_res.has_value());
+            ENTE_TEST_ASSERT(mig_res.has_value());
 
             logs.push_back({
                 .tour_name = "Tour B · Ontological Continuity",
@@ -459,16 +459,16 @@ public:
 
             // Persist ledger to disk
             auto save_res = ente.history().save_to_file(rec_filepath);
-            assert(save_res.has_value());
+            ENTE_TEST_ASSERT(save_res.has_value());
             // Agent and Process A are destroyed here at scope end!
         }
 
         // Scope 2: Process B boots from Cold Storage file on disk
         {
             auto rec_res = ente::realization::EnteRealization::recover_from_file(rec_filepath);
-            assert(rec_res.has_value());
+            ENTE_TEST_ASSERT(rec_res.has_value());
             auto recovered_ente = std::move(*rec_res);
-            assert(recovered_ente.verify().is_valid());
+            ENTE_TEST_ASSERT(recovered_ente.verify().is_valid());
 
             logs.push_back({
                 .tour_name = "Tour B · Ontological Continuity",

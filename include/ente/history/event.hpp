@@ -12,6 +12,7 @@ enum class EventKind : uint8_t {
     Interpretation,
     Perturbation,
     Judgment,
+    ActionAuthorized,
     ActionIntended,
     ActionExecution,
     ActionExecutionAck,
@@ -31,6 +32,7 @@ enum class EventKind : uint8_t {
         case EventKind::Interpretation: return "INTERPRETATION";
         case EventKind::Perturbation: return "PERTURBATION";
         case EventKind::Judgment: return "JUDGMENT";
+        case EventKind::ActionAuthorized: return "ACTION_AUTHORIZED";
         case EventKind::ActionIntended: return "ACTION_INTENDED";
         case EventKind::ActionExecution: return "ACTION_EXECUTION";
         case EventKind::ActionExecutionAck: return "ACTION_EXECUTION_ACK";
