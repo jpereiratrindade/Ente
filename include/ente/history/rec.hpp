@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ente/core/types.hpp"
+#include "ente/core/ed25519.hpp"
 #include "ente/history/event.hpp"
 #include <vector>
 #include <expected>
@@ -71,6 +72,18 @@ public:
         PersistenceOptions options = {}
     ) const noexcept;
     [[nodiscard]] static std::expected<RecoverableHistory, core::EnteError> load_from_file(std::string_view filepath) noexcept;
+
+    // V2 snapshot authentication. The trusted public key is supplied out of
+    // band; it is never accepted from the REC being verified.
+    [[nodiscard]] std::expected<void, core::EnteError> save_authenticated_to_file(
+        std::string_view filepath,
+        const core::Ed25519KeyPair& signer,
+        PersistenceOptions options = {}
+    ) const noexcept;
+    [[nodiscard]] static std::expected<RecoverableHistory, core::EnteError> load_authenticated_from_file(
+        std::string_view filepath,
+        std::string_view trusted_public_key_hex
+    ) noexcept;
 
     // Direct mutation for tamper-testing (used strictly by tests to falsify C12)
     void tamper_event_payload_for_testing(size_t index, std::string_view corrupted_payload) noexcept;

@@ -60,7 +60,8 @@ public:
         DomainT domain = DomainT{},
         std::optional<identity::MaterialAnchor> initial_anchor = std::nullopt,
         std::optional<std::string> journal_path = std::nullopt,
-        history::PersistenceOptions journal_options = {}
+        history::PersistenceOptions journal_options = {},
+        std::optional<core::Ed25519KeyPair> journal_signer = std::nullopt
     )
         : id_(agent_id)
         , domain_(std::move(domain))
@@ -71,7 +72,13 @@ public:
             throw std::runtime_error("Failed to establish ENTE Genesis for Generic Agent");
         }
         if (journal_path.has_value()) {
-            auto journal_result = ente_.enable_durable_journal(*journal_path, journal_options);
+            auto journal_result = journal_signer.has_value()
+                ? ente_.enable_authenticated_durable_journal(
+                    *journal_path,
+                    std::move(*journal_signer),
+                    journal_options
+                )
+                : ente_.enable_durable_journal(*journal_path, journal_options);
             if (!journal_result.has_value()) {
                 throw std::runtime_error("Failed to establish ENTE durable journal");
             }

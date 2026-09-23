@@ -38,7 +38,7 @@ jobs:
     - name: Install Build Dependencies & Compiler
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build ${{ matrix.pkg }}
+        sudo apt-get install -y cmake ninja-build libssl-dev ${{ matrix.pkg }}
 
     - name: Configure CMake
       run: |

@@ -79,6 +79,10 @@ public:
     // Cold Recovery from historical REC (restores identity, authority, material bindings, interpretation, and blocks 2nd Genesis)
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_history(history::RecoverableHistory history);
     [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_file(std::string_view filepath);
+    [[nodiscard]] static std::expected<EnteRealization, core::EnteError> recover_from_authenticated_file(
+        std::string_view filepath,
+        core::Ed25519KeyPair signer
+    );
 
     // Enables synchronous snapshot journaling. Once enabled, every factual
     // action phase is fsync'ed before the transition is returned to the caller.
@@ -86,7 +90,15 @@ public:
         std::string_view filepath,
         history::PersistenceOptions options = {}
     );
+    [[nodiscard]] std::expected<void, core::EnteError> enable_authenticated_durable_journal(
+        std::string_view filepath,
+        core::Ed25519KeyPair signer,
+        history::PersistenceOptions options = {}
+    );
     [[nodiscard]] bool has_durable_journal() const noexcept { return journal_path_.has_value(); }
+    [[nodiscard]] bool has_authenticated_journal() const noexcept {
+        return journal_signer_.has_value();
+    }
 
     [[nodiscard]] std::expected<DecisionTrace, core::EnteError> step(
         core::LogicalTime time,
@@ -170,6 +182,7 @@ private:
     std::unordered_map<std::string, ActionTransactionState> action_transactions_;
     std::optional<std::string> journal_path_;
     history::PersistenceOptions journal_options_;
+    std::optional<core::Ed25519KeyPair> journal_signer_;
     core::EventScopedPRNG prng_;
     std::optional<epistemic::Interpretation> current_interpretation_;
     rcc::ContextReassessment rcc_;

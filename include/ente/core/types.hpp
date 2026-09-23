@@ -79,6 +79,7 @@ enum class EnteError : uint8_t {
     InvalidSignature,
     PersistenceFailure,
     PersistenceCommitUncertain,
+    CryptographicFailure,
     DuplicateActionTransaction,
     ActionTransactionNotFound,
     InvalidActionTransition
@@ -101,6 +102,7 @@ enum class EnteError : uint8_t {
         case EnteError::InvalidSignature: return "InvalidSignature";
         case EnteError::PersistenceFailure: return "PersistenceFailure";
         case EnteError::PersistenceCommitUncertain: return "PersistenceCommitUncertain";
+        case EnteError::CryptographicFailure: return "CryptographicFailure";
         case EnteError::DuplicateActionTransaction: return "DuplicateActionTransaction";
         case EnteError::ActionTransactionNotFound: return "ActionTransactionNotFound";
         case EnteError::InvalidActionTransition: return "InvalidActionTransition";

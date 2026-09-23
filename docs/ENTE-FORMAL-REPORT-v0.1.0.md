@@ -7,15 +7,16 @@
 
 Este documento estabelece o relatório formal de verificação empírica, estrutural e de integridade do **ENTE-0**, a primeira realização mínima candidata em C++23 da categoria ontológica **ENTE** (*Entidade com Núcleo Télico e Epistêmico*).
 
-O sistema foi submetido a uma suíte de 20 baterias de testes automatizados compreendendo:
+O sistema foi submetido a uma suíte de 21 baterias de testes automatizados compreendendo:
 1. **Verificação de Invariantes Constitutivos (C1..C14)**;
 2. **Benchmark Estocástico de Monte Carlo (5.000 ensaios)** contra 4 arquiteturas de referência (baselines);
 3. **Teste de Longevidade & Escalabilidade Constitutiva (10.000 acontecimentos contínuos / 20.002 eventos REC)**;
 4. **Bateria Adversarial de Injeção de Caos (CHAOS-001..006)**;
 5. **Laboratórios de Domínio Experimental Sintético** (Veículo Autônomo / Caso KitKat, Bomba de Infusão Crítica em UTI e Estação de Campo / Irrigação);
-6. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
+6. **Autenticação do REC V2 com Ed25519**, vetor RFC 8032 e rejeição de hash-chain adversarial recalculada;
+7. **Auditoria de Segurança de Memória com AddressSanitizer (ASan) e LeakSanitizer (LSan)**.
 
-**Status de Verificação:** 20/20 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
+**Status de Verificação:** 21/21 baterias de testes executáveis aprovadas com zero vazamentos de memória reportados pelos sanitizers no ambiente avaliado.
 
 ---
 
@@ -97,11 +98,11 @@ Demonstrado com conformidade integral em três domínios sintéticos de bancada 
 
 ## 6. Verificação de Memória com AddressSanitizer & LeakSanitizer
 
-Toda a suíte de 20 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
+Toda a suíte de 21 testes foi compilada e executada sob instrumentação do **AddressSanitizer (ASan)** e **LeakSanitizer (LSan)** (`-fsanitize=address`):
 * **Memory Leaks**: `0 bytes` vazados.
 * **Buffer Overflows**: `0 ocorrências`.
 * **Use-After-Free / Double-Free**: `0 ocorrências`.
-* **Resultado**: `20/20 Passed` sob instrumentação total no ambiente avaliado.
+* **Resultado**: `21/21 Passed` sob instrumentação total no ambiente avaliado.
 
 ---
 

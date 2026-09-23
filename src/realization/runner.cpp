@@ -337,6 +337,29 @@ std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_fi
     return recovered;
 }
 
+std::expected<EnteRealization, core::EnteError> EnteRealization::recover_from_authenticated_file(
+    std::string_view filepath,
+    core::Ed25519KeyPair signer
+) {
+    const std::string trusted_public_key = signer.public_key_hex();
+    auto rec_result = history::RecoverableHistory::load_authenticated_from_file(
+        filepath,
+        trusted_public_key
+    );
+    if (!rec_result.has_value()) return std::unexpected(rec_result.error());
+
+    auto recovered = recover_from_history(std::move(*rec_result));
+    if (!recovered.has_value()) return std::unexpected(recovered.error());
+    recovered->journal_path_ = std::string(filepath);
+    recovered->journal_signer_.emplace(std::move(signer));
+    auto persisted = recovered->rec_.save_authenticated_to_file(
+        filepath,
+        *recovered->journal_signer_
+    );
+    if (!persisted.has_value()) return std::unexpected(persisted.error());
+    return recovered;
+}
+
 std::expected<void, core::EnteError> EnteRealization::enable_durable_journal(
     std::string_view filepath,
     history::PersistenceOptions options
@@ -353,6 +376,25 @@ std::expected<void, core::EnteError> EnteRealization::enable_durable_journal(
     }
     journal_path_ = std::string(filepath);
     journal_options_ = options;
+    journal_signer_.reset();
+    return {};
+}
+
+std::expected<void, core::EnteError> EnteRealization::enable_authenticated_durable_journal(
+    std::string_view filepath,
+    core::Ed25519KeyPair signer,
+    history::PersistenceOptions options
+) {
+    if (!genesis_service_.has_genesis() || rec_.empty()) {
+        return std::unexpected(core::EnteError::GenesisNotEstablished);
+    }
+    if (filepath.empty()) return std::unexpected(core::EnteError::HistoryGap);
+
+    auto persisted = rec_.save_authenticated_to_file(filepath, signer, options);
+    if (!persisted.has_value()) return std::unexpected(persisted.error());
+    journal_path_ = std::string(filepath);
+    journal_options_ = options;
+    journal_signer_.emplace(std::move(signer));
     return {};
 }
 
@@ -623,7 +665,13 @@ std::expected<ActionTransactionState, core::EnteError> EnteRealization::append_a
     };
 
     if (journal_path_.has_value()) {
-        auto persisted = candidate_rec.save_to_file(*journal_path_, journal_options_);
+        auto persisted = journal_signer_.has_value()
+            ? candidate_rec.save_authenticated_to_file(
+                *journal_path_,
+                *journal_signer_,
+                journal_options_
+            )
+            : candidate_rec.save_to_file(*journal_path_, journal_options_);
         if (!persisted.has_value()) {
             if (persisted.error() == core::EnteError::PersistenceCommitUncertain) {
                 commit_candidate();

@@ -21,10 +21,12 @@ endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+find_package(OpenSSL 3 REQUIRED COMPONENTS Crypto)
 
 # Core library
 add_library(ente_core
     src/core/hash.cpp
+    src/core/ed25519.cpp
     src/core/prng.cpp
     src/identity/genesis_service.cpp
     src/identity/material_anchor.cpp
@@ -46,6 +48,7 @@ target_include_directories(ente_core PUBLIC
 )
 
 target_compile_features(ente_core PUBLIC cxx_std_23)
+target_link_libraries(ente_core PUBLIC OpenSSL::Crypto)
 
 # Enable testing
 enable_testing()
@@ -73,6 +76,10 @@ add_test(NAME test_epistemic COMMAND test_epistemic)
 add_executable(test_rec tests/test_rec.cpp)
 target_link_libraries(test_rec PRIVATE ente_core)
 add_test(NAME test_rec COMMAND test_rec)
+
+add_executable(test_authenticated_rec tests/test_authenticated_rec.cpp)
+target_link_libraries(test_authenticated_rec PRIVATE ente_core)
+add_test(NAME test_authenticated_rec COMMAND test_authenticated_rec)
 
 add_executable(test_persistence_restart tests/test_persistence_restart.cpp)
 target_link_libraries(test_persistence_restart PRIVATE ente_core)
@@ -143,6 +150,7 @@ add_test(NAME test_field_station COMMAND ente_field_station)
 set_tests_properties(test_monte_carlo_benchmark PROPERTIES LABELS "benchmark;monte_carlo")
 set_tests_properties(test_rec_longevity PROPERTIES LABELS "long;performance;longevity")
 set_tests_properties(test_chaos_invariants PROPERTIES LABELS "chaos;security")
+set_tests_properties(test_authenticated_rec PROPERTIES LABELS "authentication;security")
 set_tests_properties(test_process_crash_recovery PROPERTIES LABELS "crash;recovery;posix")
 set_tests_properties(test_case_lab PROPERTIES LABELS "case_lab;domain")
 set_tests_properties(test_clinical_lab PROPERTIES LABELS "clinical_lab;domain")

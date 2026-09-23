@@ -51,7 +51,7 @@ O perfil local é monoprocesso e mono-nó. Ele não exige consenso distribuído.
 | Recuperação de ação interrompida | `VERIFIED` | Crash POSIX após `PREPARED`, `DISPATCHED`, `ACKNOWLEDGED` e `EFFECT_UNCONFIRMED` retorna como `RECOVERY_REQUIRED`; `CONFIRMED` e `FAILED` permanecem terminais | REC precisa ter sido persistido; encerramento de processo não equivale a power loss físico |
 | Payload transacional canônico | `VERIFIED` | Round-trip com delimitadores e newline | Não é ainda um schema externo padronizado |
 | Intenção durável antes do dispatch | `PARTIALLY_VERIFIED` | Commit point mantém REC/índice inalterados em falha anterior ao `rename`; dispatch não executa o domínio sem registro durável; falha posterior ao `rename` retorna `PersistenceCommitUncertain` | A garantia exige journal configurado; power loss físico e semântica do hardware/filesystem ainda não foram ensaiados |
-| REC autenticado | `OUT_OF_SCOPE` na versão atual | Nenhuma assinatura assimétrica por evento | Hash-chain fornece integridade, não autenticidade |
+| REC autenticado | `VERIFIED` no modo autenticado | Snapshot V2 Ed25519 validado por chave pública externa; vetor RFC 8032; cadeia válida recalculada por atacante é rejeitada; recovery mantém assinatura | O modo V1 permanece apenas hash-only e não satisfaz este claim; comprometimento da chave privada permanece fora da garantia |
 | Atestação de hardware | `SIMULATED` | Fixture RATS local | Sem TPM/TEE real |
 | C11 — linhagem distribuída | `NOT_APPLICABLE` | Perfil mono-nó | Obrigatório apenas em `ENTE-DISTRIBUTED` |
 | C13 — finalidade distribuída | `NOT_APPLICABLE` | Perfil mono-nó | Obrigatório apenas em `ENTE-DISTRIBUTED` |
