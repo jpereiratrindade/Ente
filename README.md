@@ -132,3 +132,9 @@ cmake --install build --prefix /usr/local
 ## 5. Licença
 
 Este projeto é software livre licenciado sob os termos da **GNU General Public License v3.0 (GPLv3)**. Veja o arquivo [`LICENSE`](LICENSE) para os termos completos.
+
+## Premissas de desenvolvimento
+
+**Simples, leve. Sempre pronto. Sempre incompleto!**
+
+[Significado e símbolos das premissas](docs/sister-principles/README.md).
